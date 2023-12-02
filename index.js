@@ -111,9 +111,11 @@ class CyncPlatform {
             this.log.info(`Received packet of length ${length}...`);
 
             const data = this.socket.read(length);
+            this.log.info(`Data length ${data.length}...`);
 
             if (data.length == length)
             {
+                this.log.info(`Returning packet of type ${type}`);
                 return {
                     type: type,
                     length: length,
