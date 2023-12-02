@@ -9,6 +9,10 @@
   "keywords": [
     "homebridge-plugin"
   ],
+  "engines": {
+    "node": ">=10.17.0",
+    "homebridge": ">=1.6.0"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
