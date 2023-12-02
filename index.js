@@ -17,16 +17,15 @@ class CyncPlatform {
         this.log = log;
         this.config = config;
         this.api = api;
-        this.authenticate = this._authenticate();
 
         this.api.on('didFinishLaunching', () => {
-            this.login.then(() => {
+            this.authenticate().then(() => {
                 this.registerLights();
             })
         })
     }
 
-    async _authenticate() {
+    async authenticate() {
         // first, check the access_token
         this.log.info("Logging into Cync...");
 
@@ -38,19 +37,11 @@ class CyncPlatform {
         });
 
         const data = await token.json();
+        this.log.info(`Cync login response: ${JSON.stringify(data)}`);
         this.accessToken = data.access_token;
-
-        const buf = Buffer.allocateUnsafe(31);
-        buf.write('13000000', 0, 8, 'hex');
-        buf.writeInt8(10 + `${data.authorize}`.length, 4);
-        buf.write('03', 5, 2, 'hex');
-        buf.writeInt32BE(data.user_id, 6);
-        buf.writeInt16BE(`${data.authorize}`.length, 10);
-        buf.write(data.authorize, 12, 16, 'ascii');
-        buf.write('0000b4', 28, 6, 'hex');
-
-        this.loginCode = buf;
-        this.connect();
+        this.userID = data.user_id;
+        this.authorize = data.authorize;
+        this.log.info(`Access token: ${this.accessToken}`)
     }
 
     write(data, cb) {
@@ -73,7 +64,17 @@ class CyncPlatform {
                 setTimeout(this.connect, 5000);
             });
 
-            this.write(this.loginCode, () => {});
+            const buf = Buffer.allocateUnsafe(31);
+            buf.write('13000000', 0, 8, 'hex');
+            buf.writeInt8(10 + `${this.authorize}`.length, 4);
+            buf.write('03', 5, 2, 'hex');
+            buf.writeInt32BE(this.userID, 6);
+            buf.writeInt16BE(`${this.authorize}`.length, 10);
+            buf.write(this.authorize, 12, 16, 'ascii');
+            buf.write('0000b4', 28, 6, 'hex');
+            
+            this.connect();
+            this.write(buf, () => {});
             this.connected = true;
         }
     }
