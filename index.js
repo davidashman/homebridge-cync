@@ -85,7 +85,7 @@ class CyncPlatform {
     readPacket() {
         // First read the header
         const header = this.socket.read(15);
-        if (header) {
+        if (header && header.length > 16) {
             const length = header.readInt8(15);
             const packet = this.socket.read(length);
 
