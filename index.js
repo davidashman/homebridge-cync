@@ -61,7 +61,7 @@ class CyncPlatform {
             this.socket.on('end', () => {
                 this.log.info(`Connection to Cync has closed.`);
                 this.connected = false;
-                setTimeout(this.connect, 5000);
+                setTimeout(() => { this.connect() }, 5000);
             });
 
             const buf = Buffer.allocUnsafe(31);
