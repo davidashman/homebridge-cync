@@ -106,11 +106,15 @@ class CyncPlatform {
         const header = this.socket.read(5);
         if (header) {
             const type = header.readUInt8();
-            const length = header.readUInt32BE();
-            const data = this.socket.read(length);
-
+            // Drop 3 bytes
+            header.readUInt8();
+            header.readUInt16BE();
+            // Get length
+            const length = header.readUInt8();
             this.log.info(`Received packet of length ${length}...`);
 
+            const data = this.socket.read(length);
+            
             if (data.length == length)
             {
                 return {
