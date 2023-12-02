@@ -72,7 +72,7 @@ class CyncPlatform {
             buf.writeInt16BE(`${this.authorize}`.length, 10);
             buf.write(this.authorize, 12, 16, 'ascii');
             buf.write('0000b4', 28, 6, 'hex');
-            
+
             this.connect();
             this.write(buf, () => {});
             this.connected = true;
