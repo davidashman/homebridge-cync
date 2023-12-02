@@ -20,6 +20,7 @@ class CyncPlatform {
 
         this.api.on('didFinishLaunching', () => {
             this.authenticate().then(() => {
+                this.connect();
                 this.registerLights();
             })
         })
@@ -39,7 +40,7 @@ class CyncPlatform {
         const data = await token.json();
         this.log.info(`Cync login response: ${JSON.stringify(data)}`);
         this.accessToken = data.access_token;
-        this.log.info(`Access token: ${this.accessToken}`)
+        this.log.info(`Access token: ${this.accessToken}`);
     }
 
     write(data, cb) {
@@ -52,6 +53,7 @@ class CyncPlatform {
 
     connect() {
         if (!this.connected) {
+            this.log.info("Connecting to Cync servers...");
             this.socket = tls.connect(23779, "cm.gelighting.com").setKeepAlive(true);
             this.socket.on('readable', () => {
                 this.readPacket();
@@ -71,9 +73,12 @@ class CyncPlatform {
             buf.write(this.config.authorize, 12, 16, 'ascii');
             buf.write('0000b4', 28, 6, 'hex');
 
-            this.connect();
-            this.write(buf, () => {});
-            this.connected = true;
+            this.log.info("Sending login packet...");
+
+            this.write(buf, () => {
+                this.connected = true;
+                this.log.info("Cync server connected.")
+            });
         }
     }
 
@@ -82,6 +87,8 @@ class CyncPlatform {
         const header = this.socket.read(15);
         const length = header.readInt8(15);
         const packet = this.socket.read(length);
+
+        this.log.info(`Received packet of length ${length}...`);
 
         if (packet.length % 24 == 0) {
             // only process the packet if it's a multiple of 24
@@ -94,6 +101,7 @@ class CyncPlatform {
                 }
 
                 // get the device and update the status
+                this.log.info(`Updating status for ${response.deviceID} with ${JSON.stringify(response)}`);
                 this.lightBulb(response.deviceID).updateStatus(response);
             }
         }
