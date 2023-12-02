@@ -125,7 +125,7 @@ class CyncPlatform {
             let homeR = await fetch(`https://api.gelighting.com/v2/product/${home.product_id}/device/${home.id}/property`)
             const homeData = await homeR.json();
             if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
-                homeData.bulbsArray.forEach((bulb) => {
+                for (const bulb of homeData.bulbsArray) {
                     const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
                     if (this.accessories.find(accessory => accessory.UUID === uuid)) {
                         this.log.info(`Skipping ${bulb.displayName}...`);
@@ -148,9 +148,9 @@ class CyncPlatform {
                         this.log.info(`Registering bulb ${accessory.context.deviceName} with ID ${accessory.context.deviceID}`);
                         this.api.registerPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
                     }
-                })
+                }
             }
-        })
+        }
     }
 
     /**
