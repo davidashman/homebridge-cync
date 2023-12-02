@@ -122,7 +122,9 @@ class CyncPlatform {
         this.log.info(`Received device response: ${JSON.stringify(data)}`);
 
         for (const home of data) {
-            let homeR = await fetch(`https://api.gelighting.com/v2/product/${home.product_id}/device/${home.id}/property`)
+            let homeR = await fetch(`https://api.gelighting.com/v2/product/${home.product_id}/device/${home.id}/property`, {
+                headers: {'Access-Token': this.accessToken}
+            });
             const homeData = await homeR.json();
             if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
                 for (const bulb of homeData.bulbsArray) {
