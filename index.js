@@ -85,24 +85,26 @@ class CyncPlatform {
     readPacket() {
         // First read the header
         const header = this.socket.read(15);
-        const length = header.readInt8(15);
-        const packet = this.socket.read(length);
+        if (header) {
+            const length = header.readInt8(15);
+            const packet = this.socket.read(length);
 
-        this.log.info(`Received packet of length ${length}...`);
+            this.log.info(`Received packet of length ${length}...`);
 
-        if (packet.length % 24 == 0) {
-            // only process the packet if it's a multiple of 24
-            for (let packetIndex = 0; packetIndex < length; packetIndex += 24) {
-                const response = {
-                    deviceID: packet.readInt32BE(packetIndex + 1),
-                    brightness: packet.readUInt8(packetIndex + 13),
-                    colorTone: packet.readUInt8(packetIndex + 17),
-                    isOn: packet.readUInt8(packetIndex + 9) != 0
+            if (packet.length % 24 == 0) {
+                // only process the packet if it's a multiple of 24
+                for (let packetIndex = 0; packetIndex < length; packetIndex += 24) {
+                    const response = {
+                        deviceID: packet.readInt32BE(packetIndex + 1),
+                        brightness: packet.readUInt8(packetIndex + 13),
+                        colorTone: packet.readUInt8(packetIndex + 17),
+                        isOn: packet.readUInt8(packetIndex + 9) != 0
+                    }
+
+                    // get the device and update the status
+                    this.log.info(`Updating status for ${response.deviceID} with ${JSON.stringify(response)}`);
+                    this.lightBulb(response.deviceID).updateStatus(response);
                 }
-
-                // get the device and update the status
-                this.log.info(`Updating status for ${response.deviceID} with ${JSON.stringify(response)}`);
-                this.lightBulb(response.deviceID).updateStatus(response);
             }
         }
     }
@@ -113,10 +115,11 @@ class CyncPlatform {
 
     async registerLights() {
         this.log.info("Discovering homes...");
-        let r = await fetch("https://api.gelighting.com/v2/user/{user}/subscribe/devices", {
+        let r = await fetch(`https://api.gelighting.com/v2/user/${this.config.userID}/subscribe/devices`, {
             headers: {'Access-Token': this.accessToken}
         });
         let data = await r.json();
+        this.log.info(`Received device response: ${JSON.stringify(data)}`);
 
         data.forEach((home) => {
             if (home.bulbsArray && home.bulbsArray.length > 0) {
