@@ -118,12 +118,14 @@ class CyncPlatform {
         let r = await fetch(`https://api.gelighting.com/v2/user/${this.config.userID}/subscribe/devices`, {
             headers: {'Access-Token': this.accessToken}
         });
-        let data = await r.json();
+        const data = await r.json();
         this.log.info(`Received device response: ${JSON.stringify(data)}`);
 
-        data.forEach((home) => {
-            if (home.bulbsArray && home.bulbsArray.length > 0) {
-                home.bulbsArray.forEach((bulb) => {
+        for (const home of data) {
+            let homeR = await fetch(`https://api.gelighting.com/v2/product/${home.product_id}/device/${home.id}/property`)
+            const homeData = await homeR.json();
+            if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
+                homeData.bulbsArray.forEach((bulb) => {
                     const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
                     if (this.accessories.find(accessory => accessory.UUID === uuid)) {
                         this.log.info(`Skipping ${bulb.displayName}...`);
