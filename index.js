@@ -29,7 +29,7 @@ class CyncPlatform {
         // first, check the access_token
         this.log.info("Logging into Cync...");
 
-        let payload = { refresh_token: this.config.refresh_token };
+        let payload = { refresh_token: this.config.refreshToken };
         let token = await fetch("https://api.gelighting.com/v2/user/token/refresh", {
             method: 'post',
             body: JSON.stringify(payload),
@@ -39,8 +39,6 @@ class CyncPlatform {
         const data = await token.json();
         this.log.info(`Cync login response: ${JSON.stringify(data)}`);
         this.accessToken = data.access_token;
-        this.userID = data.user_id;
-        this.authorize = data.authorize;
         this.log.info(`Access token: ${this.accessToken}`)
     }
 
@@ -66,11 +64,11 @@ class CyncPlatform {
 
             const buf = Buffer.allocateUnsafe(31);
             buf.write('13000000', 0, 8, 'hex');
-            buf.writeInt8(10 + `${this.authorize}`.length, 4);
+            buf.writeInt8(10 + `${this.config.authorize}`.length, 4);
             buf.write('03', 5, 2, 'hex');
-            buf.writeInt32BE(this.userID, 6);
-            buf.writeInt16BE(`${this.authorize}`.length, 10);
-            buf.write(this.authorize, 12, 16, 'ascii');
+            buf.writeInt32BE(this.config.userID, 6);
+            buf.writeInt16BE(`${this.config.authorize}`.length, 10);
+            buf.write(this.config.authorize, 12, 16, 'ascii');
             buf.write('0000b4', 28, 6, 'hex');
 
             this.connect();
