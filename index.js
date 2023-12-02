@@ -203,8 +203,6 @@ class LightBulb {
             .onSet((value) => {
                 this.setBrightness(value);
             });
-
-        this.connect();
     }
 
     updateStatus(data) {
