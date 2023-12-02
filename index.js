@@ -2,7 +2,7 @@
 
 import fetch from 'node-fetch';
 import process from 'node:process';
-import tls from 'node:tls';
+import net from 'node:net';
 import { Buffer } from 'node:buffer';
 
 let Service;
@@ -54,7 +54,7 @@ class CyncPlatform {
     connect() {
         if (!this.connected) {
             this.log.info("Connecting to Cync servers...");
-            this.socket = tls.connect(23779, "cm.gelighting.com").setKeepAlive(true);
+            this.socket = net.connect(23778, "cm.gelighting.com").setKeepAlive(true);
             this.socket.on('readable', () => {
                 this.readPacket();
             });
@@ -64,7 +64,7 @@ class CyncPlatform {
                 setTimeout(this.connect, 5000);
             });
 
-            const buf = Buffer.allocateUnsafe(31);
+            const buf = Buffer.allocUnsafe(31);
             buf.write('13000000', 0, 8, 'hex');
             buf.writeInt8(10 + `${this.config.authorize}`.length, 4);
             buf.write('03', 5, 2, 'hex');
