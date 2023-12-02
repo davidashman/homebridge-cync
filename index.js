@@ -3,7 +3,7 @@
 import fetch from 'node-fetch';
 import { tls } from 'node:tls';
 import { Buffer } from 'node:buffer';
-import { process } from 'node:process';
+import process from 'node:process';
 
 let Service;
 let Characteristic;
