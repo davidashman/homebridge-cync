@@ -175,19 +175,17 @@ class CyncPlatform {
      * accessory restored
      */
     configureAccessory(accessory) {
-        this.authenticate().then(() => {
-            if (accessory.context.meshID) {
-                this.checkServices(accessory);
-                this.accessories.push(accessory);
-                if (!this.lights.find(bulb => bulb.deviceID === accessory.context.deviceID)) {
-                    this.log.info(`Creating bulb for existing accessory ${accessory.context.displayName} with ID ${accessory.context.deviceID} and UUID ${accessory.UUID}.`);
-                    this.lights.push(new LightBulb(this.log, accessory, this));
-                }
+        if (accessory.context.meshID) {
+            this.checkServices(accessory);
+            this.accessories.push(accessory);
+            if (!this.lights.find(bulb => bulb.deviceID === accessory.context.deviceID)) {
+                this.log.info(`Creating bulb for existing accessory ${accessory.context.displayName} with ID ${accessory.context.deviceID} and UUID ${accessory.UUID}.`);
+                this.lights.push(new LightBulb(this.log, accessory, this));
             }
-            else {
-                this.api.unregisterPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
-            }
-        })
+        }
+        else {
+            this.api.unregisterPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
+        }
     }
 
     checkServices(accessory) {
