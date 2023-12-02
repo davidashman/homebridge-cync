@@ -8,6 +8,8 @@ import { Buffer } from 'node:buffer';
 let Service;
 let Characteristic;
 
+const PACKET_TYPE_AUTH = 0x13;
+
 class CyncPlatform {
 
     constructor(log, config, api) {
@@ -43,8 +45,15 @@ class CyncPlatform {
         this.log.info(`Access token: ${this.accessToken}`);
     }
 
-    write(data, cb) {
-        if (!this.socket.write(data)) {
+    writePacket(type, data, cb) {
+        const packet = Buffer.allocUnsafe(data.length + 5);
+        packet.writeUInt8(type);
+        packet.writeUInt16BE(0, 1);
+        packet.writeUInt8(0, 3);
+        packet.writeUInt8(data.length, 4);
+        data.copy(packet, 5);
+
+        if (!this.socket.write(packet)) {
             this.socket.once('drain', cb);
         } else {
             process.nextTick(cb);
@@ -64,49 +73,55 @@ class CyncPlatform {
                 setTimeout(() => { this.connect() }, 5000);
             });
 
-            const buf = Buffer.allocUnsafe(31);
-            buf.write('13000000', 0, 8, 'hex');
-            buf.writeInt8(10 + `${this.config.authorize}`.length, 4);
-            buf.write('03', 5, 2, 'hex');
-            buf.writeInt32BE(this.config.userID, 6);
-            buf.writeInt16BE(`${this.config.authorize}`.length, 10);
-            buf.write(this.config.authorize, 12, 16, 'ascii');
-            buf.write('0000b4', 28, 6, 'hex');
+            const data = Buffer.allocUnsafe(this.config.authorize.length + 10);
+            data.writeUInt8(0x03);
+            data.writeUInt32BE(this.config.userID, 1);
+            data.writeUInt8(0, 5);
+            data.writeUInt8(this.config.authorize.length, 6);
+            data.write(this.config.authorize, 7, this.config.authorize.length, 'ascii');
+            data.writeUInt16BE(0, this.config.authorize.length + 7);
+            data.writeUInt8(0xb4, this.config.authorize.length + 9);
 
             this.log.info("Sending login packet...");
-
-            this.write(buf, () => {
-                this.connected = true;
-                this.log.info("Cync server connected.")
+            this.writePacket(PACKET_TYPE_AUTH, data, () => {
+                const response = this.readPacket();
+                if (response) {
+                    if (response.type == PACKET_TYPE_AUTH && response.data.readUInt16BE() == 0) {
+                        this.connected = true;
+                        this.log.info("Cync server connected.");
+                    }
+                    else {
+                        this.log.info("Server authentication failed.");
+                    }
+                }
+                else {
+                    this.log.info("Failed to connect to server.");
+                }
             });
         }
     }
 
     readPacket() {
         // First read the header
-        const header = this.socket.read(15);
-        if (header && header.length > 16) {
-            const length = header.readInt8(15);
-            const packet = this.socket.read(length);
+        const header = this.socket.read(5);
+        if (header) {
+            const type = header.readUInt8();
+            const length = header.readUInt32BE();
+            const data = this.socket.read(length);
 
             this.log.info(`Received packet of length ${length}...`);
 
-            if (packet.length % 24 == 0) {
-                // only process the packet if it's a multiple of 24
-                for (let packetIndex = 0; packetIndex < length; packetIndex += 24) {
-                    const response = {
-                        deviceID: packet.readInt32BE(packetIndex + 1),
-                        brightness: packet.readUInt8(packetIndex + 13),
-                        colorTone: packet.readUInt8(packetIndex + 17),
-                        isOn: packet.readUInt8(packetIndex + 9) != 0
-                    }
-
-                    // get the device and update the status
-                    this.log.info(`Updating status for ${response.deviceID} with ${JSON.stringify(response)}`);
-                    this.lightBulb(response.deviceID).updateStatus(response);
+            if (data.length == length)
+            {
+                return {
+                    type: type,
+                    length: length,
+                    data: data
                 }
             }
         }
+
+        return null;
     }
 
     lightBulb(deviceID) {
