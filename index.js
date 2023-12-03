@@ -197,16 +197,18 @@ class CyncPlatform {
 
         for (let offset = 0; offset < data.length; offset += 19) {
             const status = data.subarray(offset, offset + 19);
+            const meshID = status.readUInt8(3);
             const isOn = status.readUInt8(4) > 0;
             const brightness = isOn ? status.readUInt8(5) : 0;
             const colorTemp = status.readUInt8(6);
 
-            this.log.info(`Got status for switch ID ${switchID} - on? ${isOn}, brightness ${brightness}, tone ${colorTemp}`);
+            this.log.info(`Got status for switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}, tone ${colorTemp}`);
+            this.lightBulb(meshID).updateStatus(isOn, brightness, colorTemp);
         }
     }
 
-    lightBulb(deviceID) {
-        return lights.find((bulb) => bulb.deviceID == deviceID);
+    lightBulb(meshID) {
+        return lights.find((bulb) => bulb.meshID == meshID);
     }
 
     async registerLights() {
@@ -304,9 +306,9 @@ class LightBulb {
             });
     }
 
-    updateStatus(data) {
-        this.on = data.isOn;
-        this.brightness = data.brightness;
+    updateStatus(isOn, brightness, colorTemp) {
+        this.on = isOn;
+        this.brightness = brightness;
 
         this.accessory.getService(Service.Lightbulb)
             .getCharacteristic(Characteristic.On)
