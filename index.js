@@ -88,7 +88,7 @@ class CyncPlatform {
 
     writePacket(type, data, cb) {
         const packet = Buffer.allocUnsafe(data.length + 5);
-        packet.writeUInt8(((type << 4) | 3);
+        packet.writeUInt8((type << 4) | 3);
         packet.writeUInt32BE(0, 1);
         packet.writeUInt8(data.length, 4);
         data.copy(packet, 5);
