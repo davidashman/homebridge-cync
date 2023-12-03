@@ -9,6 +9,7 @@ let Service;
 let Characteristic;
 
 const PACKET_TYPE_AUTH = 1;
+const PACKET_TYPE_SYNC = 4;
 const PACKET_TYPE_STATUS = 7;
 const PACKET_TYPE_PING = 13;
 
@@ -117,6 +118,9 @@ class CyncPlatform {
                 case PACKET_TYPE_STATUS:
                     this.handleStatus(packet);
                     break;
+                case PACKET_TYPE_SYNC:
+                    this.handleSync(packet);
+                    break;
             }
 
             packet = this.readPacket();
@@ -180,6 +184,10 @@ class CyncPlatform {
     }
 
     handleStatus(packet) {
+        this.log.info(`Received status packet: ${packet.data.toString('hex')}`);
+    }
+
+    handleSync(packet) {
         const switchID = packet.data.readUInt32BE();
         const length = packet.data.readUInt8(14);
         const data = packet.data.subarray(15);
