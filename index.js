@@ -93,7 +93,7 @@ class CyncPlatform {
         this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
     }
 
-    writePacket(type, data) {
+    writePacket(type, data, log = false) {
         if (type != PACKET_TYPE_AUTH && !this.connected) {
             this.log.info('Skipping packet because not connected.');
             return;
@@ -107,10 +107,13 @@ class CyncPlatform {
             data.copy(packet, 5);
         }
 
+        if (log)
+            this.log.info(`Sending packet: ${packet.toString('hex')}`);
+
         this.socket.write(packet);
     }
 
-    writeRequest(type, switchID, subtype, request) {
+    writeRequest(type, switchID, subtype, request, log = false) {
         const data = Buffer.alloc(18 + request.length);
         data.writeUInt32BE(switchID);
         data.writeUInt16BE(this.seq++, 4);
@@ -119,9 +122,9 @@ class CyncPlatform {
         data.writeUInt8(subtype, 13); // status query subtype
         data.writeUInt8(request.length, 14);
         request.copy(data, 15);
-        if (subtype != PACKET_SUBTYPE_GET_STATUS_PAGINATED)
+        if (log)
             this.log.info(`Sending request: ${data.toString('hex')}`);
-        this.writePacket(type, data);
+        this.writePacket(type, data, true);
     }
 
     readPackets() {
@@ -400,7 +403,7 @@ class LightBulb {
             data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
             data.writeUInt8(this.on, 11);
             this.log.info(`Sending status update: ${data.toString('hex')}`);
-            this.hub.writeRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, data);
+            this.hub.writeRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, data, true);
         }
     }
 
