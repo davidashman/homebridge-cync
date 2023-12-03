@@ -427,7 +427,7 @@ class LightBulb {
 
             const request = Buffer.alloc(12);
             request.writeUInt16LE(this.meshID, 6);
-            request.writeUInt8(PACKET_SUBTYPE_SET_BRIGHTNESS 8);
+            request.writeUInt8(PACKET_SUBTYPE_SET_BRIGHTNESS, 8);
             request.writeUInt8(this.brightness, 11);
 
             const footer = Buffer.alloc(3);
