@@ -127,6 +127,8 @@ class CyncPlatform {
         this.writePacket(type, data, log);
     }
 
+    730000001f1c32a7af0009007e00000000f8d00d0000000000000800d000000000000000
+
     readPackets() {
         let packet = this.readPacket();
         while (packet) {
@@ -399,7 +401,7 @@ class LightBulb {
             this.on = value;
 
             const data = Buffer.alloc(13);
-            data.writeUInt8(this.meshID, 6);
+            data.writeUInt8(this.meshID, 7);
             data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
             data.writeUInt8(this.on, 11);
             this.log.info(`Sending status update: ${data.toString('hex')}`);
