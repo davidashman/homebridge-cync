@@ -31,9 +31,9 @@ class CyncPlatform {
                 this.connect();
                 this.registerLights();
 
-                // setInterval(() => {
-                //     this.ping();
-                // }, 2000);
+                setInterval(() => {
+                    this.ping();
+                }, 5000);
 
                 setInterval(() => {
                     this.queryStatus();
@@ -167,6 +167,7 @@ class CyncPlatform {
             data.writeUInt8(0x18);
             data.writeUInt32BE(bulb.switchID, 1);
             data.writeUInt16BE(this.seq++, 5);
+            this.log.info(`Querying status with preamble ${data.toString('hex')}`);
             data.write('007e00000000f85206000000ffff0000567e', 7, 18, 'hex');
             this.writePacket(PACKET_TYPE_STATUS, data);
         }
