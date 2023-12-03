@@ -197,7 +197,10 @@ class CyncPlatform {
             const colorTemp = status.readUInt8(6);
 
             this.log.info(`Got status for switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}, tone ${colorTemp}`);
-            this.lightBulb(meshID).updateStatus(isOn, brightness, colorTemp);
+            const bulb = this.lightBulb(meshID);
+            if (bulb) {
+                bulb.updateStatus(isOn, brightness, colorTemp);
+            }
         }
     }
 
@@ -211,7 +214,9 @@ class CyncPlatform {
 
             this.log.info(`Got status sync for switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
             const bulb = this.lightBulb(meshID);
-            bulb.updateStatus(isOn, brightness, bulb.colorTemp);
+            if (bulb) {
+                bulb.updateStatus(isOn, brightness, bulb.colorTemp);
+            }
         }
     }
     lightBulb(meshID) {
