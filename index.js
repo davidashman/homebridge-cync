@@ -193,26 +193,13 @@ class CyncPlatform {
     handleSync(packet) {
         this.log.info(`Got status packet: ${packet.data.toString('hex')}`);
         const switchID = packet.data.readUInt32BE();
-        const length = packet.data.readUInt8(14);
-        const data = packet.data.subarray(15);
+        const data = packet.data.subarray(7);
 
-        if (length > data.length || length < 6) {
-            this.log.info("Status buffer underflow");
-            return;
-        }
-
-        const statusData = data.subarray(6, length + 6);
-        if (statusData.length % 24 != 0) {
-            this.log.info(`Status packet length is wrong: ${statusData.length}`);
-            return;
-        }
-
-        for (let statusOffset = 0; statusOffset < statusData.length; statusOffset += 24) {
-            const status = statusData.subarray(statusOffset, statusOffset + 24);
-            const device = status.readUInt8(1);
-            const brightness = status.readUInt8(13);
-            const tone = status.readUInt8(17);
-            const isOn = status.readUInt8(9) != 0;
+        for (let offset = 0; offset < data.length; offset += 19) {
+            const status = data.subarray(offset, offset + 19);
+            const isOn = status.readUInt8(4) > 0;
+            const brightness = isOn ? status.readUInt8(5) : 0;
+            const colorTemp = status.readUInt8(6);
 
             this.log.info(`Got status for ${device} with switch ID ${switchID} - on? ${isOn}, brightness ${brightness}, tone ${tone}`);
         }
