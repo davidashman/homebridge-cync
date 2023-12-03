@@ -208,7 +208,7 @@ class CyncPlatform {
     }
 
     lightBulb(meshID) {
-        return lights.find((bulb) => bulb.meshID == meshID);
+        return this.lights.find((bulb) => bulb.meshID == meshID);
     }
 
     async registerLights() {
