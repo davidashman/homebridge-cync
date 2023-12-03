@@ -10,7 +10,7 @@ let Characteristic;
 
 const PACKET_TYPE_AUTH = 1;
 const PACKET_TYPE_STATUS = 4;
-const PACKET_TYPE_PING = 14;
+const PACKET_TYPE_PING = 13;
 
 const PING_BUFFER = Buffer.alloc(0);
 
@@ -28,6 +28,10 @@ class CyncPlatform {
             this.authenticate().then(() => {
                 this.connect();
                 this.registerLights();
+
+                setInterval(() => {
+                    this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
+                }, 60000);
             })
         })
     }
@@ -61,10 +65,6 @@ class CyncPlatform {
                 this.connected = false;
                 setTimeout(() => { this.connect() }, 5000);
             });
-
-            setInterval(() => {
-                this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
-            }, 60000);
 
             const data = Buffer.allocUnsafe(this.config.authorize.length + 10);
             data.writeUInt8(0x03);
@@ -118,21 +118,24 @@ class CyncPlatform {
             const length = header.readUInt8(4);
             this.log.info(`Received packet of type ${type} with length ${length}...`);
 
-            const data = this.socket.read(length);
+            if (length > 0) {
+                const data = this.socket.read(length);
 
-            if (data.length == length)
-            {
-                return {
-                    type: type,
-                    length: length,
-                    data: data
+                if (data.length == length)
+                {
+                    return {
+                        type: type,
+                        length: length,
+                        data: data
+                    }
                 }
-            }
-            else {
-                this.log.info("Packet length doesn't match.");
+                else {
+                    this.log.info("Packet length doesn't match.");
+                }
             }
         }
 
+        this.log.info("Invalid packet received.");
         return null;
     }
 
