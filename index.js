@@ -399,7 +399,7 @@ class LightBulb {
             data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
             data.writeUInt8(this.on, 11);
             this.log.info(`Sending status update: ${data.toString('hex')}`);
-            this.hub.writeRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_SET_STATUS, data);
+            this.hub.writeRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, data);
         }
     }
 
