@@ -113,7 +113,7 @@ class CyncPlatform {
         this.socket.write(packet);
     }
 
-    writeRequest(type, switchID, subtype, request, log = false) {
+    writeRequest(type, switchID, subtype, request, footer = null, log = false) {
         const data = Buffer.alloc(18 + request.length);
         data.writeUInt32BE(switchID);
         data.writeUInt16BE(this.seq++, 4);
@@ -122,8 +122,12 @@ class CyncPlatform {
         data.writeUInt8(subtype, 13); // status query subtype
         data.writeUInt8(request.length, 14);
         request.copy(data, 15);
+        if (footer)
+            footer.copy(data, 15 + request.length);
+
         if (log)
             this.log.info(`Sending request: ${data.toString('hex')}`);
+
         this.writePacket(type, data, log);
     }
 
@@ -169,13 +173,13 @@ class CyncPlatform {
                         data: data
                     }
                 }
-                // else {
-                //     this.log.info("Packet length doesn't match.");
-                // }
+                else {
+                    this.log.info("Packet length doesn't match.");
+                }
             }
-            else {
-                this.log.info(`Got empty packet with type ${type}, header ${header.toString('hex')}`);
-            }
+            // else {
+            //     this.log.info(`Got empty packet with type ${type}, header ${header.toString('hex')}`);
+            // }
         }
 
         return null;
@@ -404,11 +408,16 @@ class LightBulb {
             this.on = value;
 
             const data = Buffer.alloc(13);
-            data.writeUInt16LE(this.meshID, 5);
+            data.writeUInt16LE(this.meshID, 6);
             data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
             data.writeUInt8(this.on, 11);
-            this.log.info(`Sending status update: ${data.toString('hex')}`);
-            this.hub.writeRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, data, true);
+
+            const footer = Buffer.alloc(3);
+            data.writeUInt8(((this.on ? 430 : 429) + this.meshID) % 256, 1);
+            data.writeUInt8(0x7e, 2);
+
+            this.log.info(`Sending status update: ${data.toString('hex')}, footer ${footer.toString('hex')}`);
+            this.hub.writeRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, data, footer, true);
         }
     }
 
