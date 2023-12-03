@@ -119,7 +119,8 @@ class CyncPlatform {
         data.writeUInt8(subtype, 13); // status query subtype
         data.writeUInt8(request.length, 14);
         request.copy(data, 15);
-        this.log.info(`Sending request: ${data.toString('hex')}`);
+        if (subtype != PACKET_SUBTYPE_GET_STATUS_PAGINATED)
+            this.log.info(`Sending request: ${data.toString('hex')}`);
         this.writePacket(type, data);
     }
 
