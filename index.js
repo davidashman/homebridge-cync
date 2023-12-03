@@ -209,7 +209,7 @@ class CyncPlatform {
     }
 
     handleSync(packet) {
-        this.log.info(`Got status packet: ${packet.data.toString('hex')}`);
+        // this.log.info(`Got status packet: ${packet.data.toString('hex')}`);
         const switchID = packet.data.readUInt32BE();
         const data = packet.data.subarray(7);
 
@@ -417,13 +417,25 @@ class LightBulb {
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, footer, true);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, footer);
         }
     }
 
     setBrightness(value) {
         if (value != this.brightness) {
             this.brightness = value;
+
+            const request = Buffer.alloc(12);
+            request.writeUInt16LE(this.meshID, 6);
+            request.writeUInt8(PACKET_SUBTYPE_SET_BRIGHTNESS 8);
+            request.writeUInt8(this.brightness, 11);
+
+            const footer = Buffer.alloc(3);
+            footer.writeUInt8((431 + this.brightness + this.meshID) % 256, 1);
+            footer.writeUInt8(0x7e, 2);
+
+            this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_BRIGHTNESS, request, footer);
         }
     }
 }
