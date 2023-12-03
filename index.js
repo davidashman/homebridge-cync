@@ -23,14 +23,19 @@ class CyncPlatform {
         this.log = log;
         this.config = config;
         this.api = api;
+        this.seq = 1;
 
         this.api.on('didFinishLaunching', () => {
             this.authenticate().then(() => {
                 this.connect();
                 this.registerLights();
 
+                // setInterval(() => {
+                //     this.ping();
+                // }, 2000);
+
                 setInterval(() => {
-                    this.ping();
+                    this.queryStatus();
                 }, 2000);
             })
         })
@@ -66,13 +71,11 @@ class CyncPlatform {
                 setTimeout(() => { this.connect() }, 5000);
             });
 
-            const data = Buffer.allocUnsafe(this.config.authorize.length + 10);
+            const data = Buffer.alloc(this.config.authorize.length + 10);
             data.writeUInt8(0x03);
             data.writeUInt32BE(this.config.userID, 1);
-            data.writeUInt8(0, 5);
             data.writeUInt8(this.config.authorize.length, 6);
             data.write(this.config.authorize, 7, this.config.authorize.length, 'ascii');
-            data.writeUInt16BE(0, this.config.authorize.length + 7);
             data.writeUInt8(0xb4, this.config.authorize.length + 9);
 
             this.log.info("Sending login packet...");
@@ -81,15 +84,17 @@ class CyncPlatform {
     }
 
     ping() {
-        if (this.connected) {
-            this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
-        }
+        this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
     }
 
     writePacket(type, data) {
-        const packet = Buffer.allocUnsafe(data.length + 5);
+        if (type != PACKET_TYPE_AUTH && !this.connected) {
+            this.log.info('Skipping packet because not connected.');
+            return;
+        }
+
+        const packet = Buffer.alloc(data.length + 5);
         packet.writeUInt8((type << 4) | 3);
-        packet.writeUInt32BE(0, 1);
 
         if (data.length > 0) {
             packet.writeUInt8(data.length, 4);
@@ -150,6 +155,17 @@ class CyncPlatform {
         }
 
         return null;
+    }
+
+    queryStatus() {
+        for (const bulb of this.lights) {
+            const data = Buffer.alloc(0x19);
+            data.writeUInt8(0x18);
+            data.writeUInt32BE(bulb.switchID, 1);
+            data.writeUInt16BE(this.seq++, 5);
+            data.write('007e00000000f85206000000ffff0000567e', 7, 36, 'hex');
+            this.writePacket(PACKET_TYPE_STATUS, data);
+        }
     }
 
     handleConnect(packet) {
@@ -271,6 +287,8 @@ class LightBulb {
         this.accessory = accessory;
         this.name = accessory.context.displayName;
         this.deviceID = accessory.context.deviceID;
+        this.switchID = accessory.context.switchID;
+        this.meshID = accessory.context.meshID;
         this.on = false;
         this.hub = hub;
         this.brightness = 100;
