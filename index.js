@@ -10,6 +10,9 @@ let Characteristic;
 
 const PACKET_TYPE_AUTH = 1;
 const PACKET_TYPE_STATUS = 4;
+const PACKET_TYPE_PING = 14;
+
+const PING_BUFFER = Buffer.alloc(0);
 
 class CyncPlatform {
 
@@ -59,6 +62,10 @@ class CyncPlatform {
                 setTimeout(() => { this.connect() }, 5000);
             });
 
+            setInterval(() => {
+                this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
+            }, 60000);
+
             const data = Buffer.allocUnsafe(this.config.authorize.length + 10);
             data.writeUInt8(0x03);
             data.writeUInt32BE(this.config.userID, 1);
@@ -77,9 +84,13 @@ class CyncPlatform {
         const packet = Buffer.allocUnsafe(data.length + 5);
         packet.writeUInt8((type << 4) | 3);
         packet.writeUInt32BE(0, 1);
-        packet.writeUInt8(data.length, 4);
-        data.copy(packet, 5);
 
+        if (data.length > 0) {
+            packet.writeUInt8(data.length, 4);
+            data.copy(packet, 5);
+        }
+
+        this.log.info(`Writing packet with type ${type}`)
         this.socket.write(packet);
     }
 
@@ -103,22 +114,22 @@ class CyncPlatform {
         // First read the header
         const header = this.socket.read(5);
         if (header) {
-            this.log.info(`Packet header: ${header.toString('hex')}`);
             const type = (header.readUInt8() >>> 4);
             const length = header.readUInt8(4);
-            this.log.info(`Received packet of length ${length}...`);
+            this.log.info(`Received packet of type ${type} with length ${length}...`);
 
             const data = this.socket.read(length);
-            this.log.info(`Data length ${data.length}...`);
 
             if (data.length == length)
             {
-                this.log.info(`Returning packet of type ${type}`);
                 return {
                     type: type,
                     length: length,
                     data: data
                 }
+            }
+            else {
+                this.log.info("Packet length doesn't match.");
             }
         }
 
