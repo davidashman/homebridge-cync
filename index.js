@@ -171,7 +171,7 @@ class CyncPlatform {
             data.writeUInt8(0xf8, 11);
             data.writeUInt8(0x52, 11); // status query subtype
             data.writeUInt8(6, 12);
-            data.writeUInt16BE(1, 16);
+            data.writeUInt16BE(0xffff, 16);
             this.log.info(`Querying status with preamble ${data.toString('hex')}`);
             this.writePacket(PACKET_TYPE_STATUS, data);
         }
