@@ -185,13 +185,13 @@ class CyncPlatform {
                     const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
                     let accessory = this.accessories.find(accessory => accessory.UUID === uuid);
                     if (accessory) {
-                        this.checkServices(bulb, accessory);
+                        this.checkServices(accessory, bulb);
                         this.log.info(`Skipping bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
                     }
                     else {
                         // create a new accessory
                         accessory = new this.api.platformAccessory(bulb.displayName, uuid);
-                        this.checkServices(bulb, accessory);
+                        this.checkServices(accessory, bulb);
 
                         this.log.info(`Creating bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
                         this.lights.push(new LightBulb(this.log, accessory, this));
@@ -222,11 +222,13 @@ class CyncPlatform {
         }
     }
 
-    checkServices(bulb, accessory) {
-        accessory.context.displayName = bulb.displayName;
-        accessory.context.deviceID = bulb.deviceID;
-        accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
-        accessory.context.switchID = bulb.switchID || 0;
+    checkServices(accessory, bulb = null) {
+        if (bulb) {
+            accessory.context.displayName = bulb.displayName;
+            accessory.context.deviceID = bulb.deviceID;
+            accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
+            accessory.context.switchID = bulb.switchID || 0;
+        }
 
         if (!accessory.getService(Service.Lightbulb)) {
             accessory.addService(new Service.Lightbulb(accessory.context.displayName));
