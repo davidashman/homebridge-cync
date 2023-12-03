@@ -185,13 +185,13 @@ class CyncPlatform {
                     const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
                     let accessory = this.accessories.find(accessory => accessory.UUID === uuid);
                     if (accessory) {
-                        this.checkServices(accessory, bulb);
+                        this.checkServices(accessory, bulb, home);
                         this.log.info(`Skipping bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
                     }
                     else {
                         // create a new accessory
                         accessory = new this.api.platformAccessory(bulb.displayName, uuid);
-                        this.checkServices(accessory, bulb);
+                        this.checkServices(accessory, bulb, home);
 
                         this.log.info(`Creating bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
                         this.lights.push(new LightBulb(this.log, accessory, this));
@@ -222,7 +222,7 @@ class CyncPlatform {
         }
     }
 
-    checkServices(accessory, bulb = null) {
+    checkServices(accessory, bulb = null, home = null) {
         if (bulb) {
             accessory.context.displayName = bulb.displayName;
             accessory.context.deviceID = bulb.deviceID;
