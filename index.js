@@ -404,7 +404,7 @@ class LightBulb {
             this.on = value;
 
             const data = Buffer.alloc(13);
-            data.writeUInt16LE(this.meshID, 6);
+            data.writeUInt16LE(this.meshID, 5);
             data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
             data.writeUInt8(this.on, 11);
             this.log.info(`Sending status update: ${data.toString('hex')}`);
