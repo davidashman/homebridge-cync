@@ -11,6 +11,7 @@ let Characteristic;
 const PACKET_TYPE_AUTH = 1;
 const PACKET_TYPE_SYNC = 4;
 const PACKET_TYPE_STATUS = 7;
+const PACKET_TYPE_STATUS_SYNC = 8;
 const PACKET_TYPE_PING = 13;
 
 const PING_BUFFER = Buffer.alloc(0);
@@ -62,14 +63,14 @@ class CyncPlatform {
     connect() {
         if (!this.connected) {
             this.log.info("Connecting to Cync servers...");
-            this.socket = net.connect(23778, "cm.gelighting.com").setKeepAlive(true);
+            this.socket = net.connect(23778, "cm.gelighting.com");
             this.socket.on('readable', () => {
                 this.readPackets();
             });
             this.socket.on('end', () => {
                 this.log.info(`Connection to Cync has closed.`);
                 this.connected = false;
-                setTimeout(() => { this.connect() }, 5000);
+                this.connect();
             });
 
             const data = Buffer.alloc(this.config.authorize.length + 10);
@@ -120,6 +121,9 @@ class CyncPlatform {
                     break;
                 case PACKET_TYPE_SYNC:
                     this.handleSync(packet);
+                    break;
+                case PACKET_TYPE_STATUS_SYNC:
+                    this.handleStatusSync(packet);
                     break;
             }
 
@@ -207,6 +211,19 @@ class CyncPlatform {
         }
     }
 
+    handleStatusSync(packet) {
+        this.log.info(`Got status sync packet: ${packet.data.toString('hex')}`);
+        if (packet.length >= 33) {
+            const switchID = packet.data.readUInt32BE();
+            const meshID = packet.data.readUInt8(21);
+            const isOn = packet.data.readUInt8(27) > 0;
+            const brightness = isOn ? packet.data.readUInt8(28) : 0;
+
+            this.log.info(`Got status sync for switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
+            const bulb = this.lightBulb(meshID);
+            bulb.updateStatus(isOn, brightness, bulb.colorTemp);
+        }
+    }
     lightBulb(meshID) {
         return this.lights.find((bulb) => bulb.meshID == meshID);
     }
@@ -294,6 +311,7 @@ class LightBulb {
         this.on = false;
         this.hub = hub;
         this.brightness = 100;
+        this.colorTemp = 0;
 
         const bulb = accessory.getService(Service.Lightbulb);
         bulb.getCharacteristic(Characteristic.On)
