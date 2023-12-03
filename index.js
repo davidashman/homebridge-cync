@@ -51,7 +51,7 @@ class CyncPlatform {
             this.log.info("Connecting to Cync servers...");
             this.socket = net.connect(23778, "cm.gelighting.com").setKeepAlive(true);
             this.socket.on('readable', () => {
-                this.readPacket();
+                this.readPackets();
             });
             this.socket.on('end', () => {
                 this.log.info(`Connection to Cync has closed.`);
