@@ -135,7 +135,6 @@ class CyncPlatform {
             }
         }
 
-        this.log.info("Invalid packet received.");
         return null;
     }
 
