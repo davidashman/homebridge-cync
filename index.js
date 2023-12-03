@@ -124,7 +124,7 @@ class CyncPlatform {
         request.copy(data, 15);
         if (log)
             this.log.info(`Sending request: ${data.toString('hex')}`);
-        this.writePacket(type, data, true);
+        this.writePacket(type, data, log);
     }
 
     readPackets() {
