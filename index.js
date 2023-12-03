@@ -191,6 +191,7 @@ class CyncPlatform {
     }
 
     handleSync(packet) {
+        this.log.info(`Got status packet: ${packet.data.toString('hex')}`);
         const switchID = packet.data.readUInt32BE();
         const length = packet.data.readUInt8(14);
         const data = packet.data.subarray(15);
