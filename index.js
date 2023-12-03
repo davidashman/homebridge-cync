@@ -105,7 +105,7 @@ class CyncPlatform {
         const header = this.socket.read(5);
         if (header) {
             this.log.info(`Packet header: ${header.toString('hex')}`);
-            const type = header.readUInt8() >>> 4;
+            const type = (header.readUInt8() >>> 4);
             const length = header.readUInt8(4);
             this.log.info(`Received packet of length ${length}...`);
 
