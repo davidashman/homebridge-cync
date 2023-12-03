@@ -9,7 +9,7 @@ let Service;
 let Characteristic;
 
 const PACKET_TYPE_AUTH = 1;
-const PACKET_TYPE_STATUS = 4;
+const PACKET_TYPE_STATUS = 7;
 const PACKET_TYPE_PING = 13;
 
 const PING_BUFFER = Buffer.alloc(0);
