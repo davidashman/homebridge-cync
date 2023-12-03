@@ -113,7 +113,7 @@ class CyncPlatform {
         this.socket.write(packet);
     }
 
-    writeRequest(type, switchID, subtype, request, footer = null, log = false) {
+    sendRequest(type, switchID, subtype, request, footer = null, log = false) {
         const data = Buffer.alloc(18 + request.length);
         data.writeUInt32BE(switchID);
         data.writeUInt16BE(this.seq++, 4);
@@ -189,7 +189,7 @@ class CyncPlatform {
         for (const bulb of this.lights) {
             const data = Buffer.alloc(6);
             data.writeUInt16BE(0xffff, 3);
-            this.writeRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data);
         }
     }
 
@@ -407,17 +407,17 @@ class LightBulb {
         if (value != this.on) {
             this.on = value;
 
-            const data = Buffer.alloc(13);
-            data.writeUInt16LE(this.meshID, 6);
-            data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
-            data.writeUInt8(this.on, 11);
+            const request = Buffer.alloc(13);
+            request.writeUInt16LE(this.meshID, 6);
+            request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
+            request.writeUInt8(this.on, 11);
 
             const footer = Buffer.alloc(3);
-            data.writeUInt8(((this.on ? 430 : 429) + this.meshID) % 256, 1);
-            data.writeUInt8(0x7e, 2);
+            footer.writeUInt8(((this.on ? 430 : 429) + this.meshID) % 256, 1);
+            footer.writeUInt8(0x7e, 2);
 
-            this.log.info(`Sending status update: ${data.toString('hex')}, footer ${footer.toString('hex')}`);
-            this.hub.writeRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, data, footer, true);
+            this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, footer, true);
         }
     }
 
