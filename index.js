@@ -17,6 +17,7 @@ const PACKET_TYPE_PING = 13;
 const PACKET_SUBTYPE_SET_STATUS = 0xd0;
 const PACKET_SUBTYPE_SET_BRIGHTNESS = 0xd2;
 const PACKET_SUBTYPE_SET_COLOR_TEMP = 0xe2;
+const PACKET_SUBTYPE_SET_COMBO = 0xf0;
 const PACKET_SUBTYPE_GET_STATUS = 0xdb;
 const PACKET_SUBTYPE_GET_STATUS_PAGINATED = 0x52;
 
@@ -346,6 +347,7 @@ class LightBulb {
     updateStatus(isOn, brightness, colorTemp) {
         this.on = isOn;
         this.brightness = brightness;
+        this.colorTemp = colorTemp;
 
         this.accessory.getService(Service.Lightbulb)
             .getCharacteristic(Characteristic.On)
@@ -413,7 +415,7 @@ class LightBulb {
             request.writeUInt8(this.on, 11);
 
             const footer = Buffer.alloc(3);
-            footer.writeUInt8(((this.on ? 430 : 429) + this.meshID) % 256, 1);
+            footer.writeUInt8((429 + (this.on ? 1 : 0) + this.meshID) % 256, 1);
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
@@ -431,7 +433,7 @@ class LightBulb {
             request.writeUInt8(this.brightness, 11);
 
             const footer = Buffer.alloc(3);
-            footer.writeUInt8((431 + this.brightness + this.meshID) % 256, 1);
+            footer.writeUInt8((433 + this.brightness + this.meshID) % 256, 1);
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
