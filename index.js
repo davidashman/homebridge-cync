@@ -164,8 +164,8 @@ class CyncPlatform {
     queryStatus() {
         for (const bulb of this.lights) {
             const data = Buffer.alloc(24);
-            data.writeUInt32BE(bulb.switchID, 1);
-            data.writeUInt16BE(this.seq++, 5);
+            data.writeUInt32BE(bulb.switchID);
+            data.writeUInt16BE(this.seq++, 4);
             data.writeUInt16BE(0x7e00, 7);
             // data.writeUInt8(1, 8);
             data.writeUInt8(0xf8, 12);
