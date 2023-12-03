@@ -90,7 +90,9 @@ class CyncPlatform {
             data.copy(packet, 5);
         }
 
-        this.log.info(`Writing packet with type ${type}`)
+        if (type != PACKET_TYPE_PING)
+            this.log.info(`Writing packet with type ${type}`);
+
         this.socket.write(packet);
     }
 
@@ -116,7 +118,9 @@ class CyncPlatform {
         if (header) {
             const type = (header.readUInt8() >>> 4);
             const length = header.readUInt8(4);
-            this.log.info(`Received packet of type ${type} with length ${length}...`);
+
+            if (type != PACKET_TYPE_PING)
+                this.log.info(`Received packet of type ${type} with length ${length}...`);
 
             if (length > 0) {
                 const data = this.socket.read(length);
