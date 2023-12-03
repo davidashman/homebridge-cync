@@ -173,6 +173,9 @@ class CyncPlatform {
                     this.log.info("Packet length doesn't match.");
                 }
             }
+            else {
+                this.log.info(`Got empty packet with type ${type}, header ${header.toString('hex')}`);
+            }
         }
 
         return null;
