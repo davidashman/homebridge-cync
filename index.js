@@ -163,12 +163,16 @@ class CyncPlatform {
 
     queryStatus() {
         for (const bulb of this.lights) {
-            const data = Buffer.alloc(0x19);
-            data.writeUInt8(0x18);
-            data.writeUInt32BE(bulb.switchID, 1);
-            data.writeUInt16BE(this.seq++, 5);
+            const data = Buffer.alloc(24);
+            data.writeUInt32BE(bulb.deviceID);
+            data.writeUInt16BE(this.seq++, 4);
+            data.writeUInt16BE(0x7e00, 6);
+            data.writeUInt8(1, 8);
+            data.writeUInt8(0xf8, 11);
+            data.writeUInt8(0x52, 11); // status query subtype
+            data.writeUInt8(6, 12);
+            data.writeUInt16BE(1, 16);
             this.log.info(`Querying status with preamble ${data.toString('hex')}`);
-            data.write('007e00000000f85206000000ffff0000567e', 7, 18, 'hex');
             this.writePacket(PACKET_TYPE_STATUS, data);
         }
     }
