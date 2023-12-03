@@ -14,6 +14,12 @@ const PACKET_TYPE_STATUS = 7;
 const PACKET_TYPE_STATUS_SYNC = 8;
 const PACKET_TYPE_PING = 13;
 
+const PACKET_SUBTYPE_SET_STATUS = 0xd0;
+const PACKET_SUBTYPE_SET_BRIGHTNESS = 0xd2;
+const PACKET_SUBTYPE_SET_COLOR_TEMP = 0xe2;
+const PACKET_SUBTYPE_GET_STATUS = 0xdb;
+const PACKET_SUBTYPE_GET_STATUS_PAGINATED = 0x52;
+
 const PING_BUFFER = Buffer.alloc(0);
 
 class CyncPlatform {
@@ -104,6 +110,18 @@ class CyncPlatform {
         this.socket.write(packet);
     }
 
+    writeRequest(type, switchID, subtype, request) {
+        const data = Buffer.alloc(18 + request.length);
+        data.writeUInt32BE(switchID);
+        data.writeUInt16BE(this.seq++, 4);
+        data.writeUInt8(0x7e, 7);
+        data.writeUInt8(0xf8, 12);
+        data.writeUInt8(subtype, 13); // status query subtype
+        data.writeUInt8(request.length, 14);
+        request.copy(data, 15);
+        this.writePacket(type, data);
+    }
+
     readPackets() {
         let packet = this.readPacket();
         while (packet) {
@@ -155,15 +173,9 @@ class CyncPlatform {
 
     queryStatus() {
         for (const bulb of this.lights) {
-            const data = Buffer.alloc(24);
-            data.writeUInt32BE(bulb.switchID);
-            data.writeUInt16BE(this.seq++, 4);
-            data.writeUInt8(0x7e, 7);
-            data.writeUInt8(0xf8, 12);
-            data.writeUInt8(0x52, 13); // status query subtype
-            data.writeUInt8(6, 14);
-            data.writeUInt16BE(0xffff, 18);
-            this.writePacket(PACKET_TYPE_STATUS, data);
+            const data = Buffer.alloc(6);
+            data.writeUInt16BE(0xffff, 3);
+            this.writeRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data);
         }
     }
 
@@ -196,7 +208,7 @@ class CyncPlatform {
 
             const bulb = this.lightBulb(meshID);
             if (bulb) {
-                this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}, tone ${colorTemp}`);
+                this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}`);
                 bulb.updateStatus(isOn, brightness, colorTemp);
             }
         }
@@ -380,6 +392,12 @@ class LightBulb {
     setOn(value) {
         if (value != this.on) {
             this.on = value;
+
+            const data = Buffer.alloc(13);
+            data.writeUInt16BE(this.meshID, 5);
+            data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
+            data.writeUInt8(this.on, 11);
+            this.writeRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_SET_STATUS, data);
         }
     }
 
