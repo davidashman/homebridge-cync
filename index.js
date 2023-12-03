@@ -166,13 +166,11 @@ class CyncPlatform {
             const data = Buffer.alloc(24);
             data.writeUInt32BE(bulb.switchID);
             data.writeUInt16BE(this.seq++, 4);
-            data.writeUInt16BE(0x7e00, 7);
-            // data.writeUInt8(1, 8);
+            data.writeUInt8(0x7e, 7);
             data.writeUInt8(0xf8, 12);
             data.writeUInt8(0x52, 13); // status query subtype
             data.writeUInt8(6, 14);
             data.writeUInt16BE(0xffff, 18);
-            this.log.info(`Querying status with preamble ${data.toString('hex')}`);
             this.writePacket(PACKET_TYPE_STATUS, data);
         }
     }
@@ -229,13 +227,14 @@ class CyncPlatform {
             headers: {'Access-Token': this.accessToken}
         });
         const data = await r.json();
-        this.log.info(`Received device response: ${JSON.stringify(data)}`);
+        this.log.info(`Received home response: ${JSON.stringify(data)}`);
 
         for (const home of data) {
             let homeR = await fetch(`https://api.gelighting.com/v2/product/${home.product_id}/device/${home.id}/property`, {
                 headers: {'Access-Token': this.accessToken}
             });
             const homeData = await homeR.json();
+            this.log.info(`Received device response: ${JSON.stringify(homeData)}`);
             if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
                 for (const bulb of homeData.bulbsArray) {
                     const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
