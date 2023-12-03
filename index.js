@@ -127,8 +127,6 @@ class CyncPlatform {
         this.writePacket(type, data, log);
     }
 
-    730000001f1c32a7af0009007e00000000f8d00d0000000000000800d000000000000000
-
     readPackets() {
         let packet = this.readPacket();
         while (packet) {
