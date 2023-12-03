@@ -392,13 +392,14 @@ class LightBulb {
     setOn(value) {
         if (value != this.on) {
             this.on = value;
-
-            const data = Buffer.alloc(13);
-            data.writeUInt16BE(this.meshID, 5);
-            data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
-            data.writeUInt8(this.on, 11);
-            this.writeRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_SET_STATUS, data);
         }
+
+        const data = Buffer.alloc(13);
+        data.writeUInt16BE(this.meshID, 5);
+        data.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
+        data.writeUInt8(this.on, 11);
+        this.log.info(`Sending status update: ${data.toString('hex')}`);
+        this.hub.writeRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_SET_STATUS, data);
     }
 
     setBrightness(value) {
