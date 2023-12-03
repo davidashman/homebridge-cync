@@ -103,9 +103,6 @@ class CyncPlatform {
             data.copy(packet, 5);
         }
 
-        // if (type != PACKET_TYPE_PING)
-            this.log.info(`Writing packet with type ${type}`);
-
         this.socket.write(packet);
     }
 
@@ -131,19 +128,12 @@ class CyncPlatform {
         }
     }
 
-    validPacketType(type) {
-        return type == PACKET_TYPE_AUTH || type == PACKET_TYPE_STATUS;
-    }
-
     readPacket() {
         // First read the header
         const header = this.socket.read(5);
         if (header) {
             const type = (header.readUInt8() >>> 4);
             const length = header.readUInt8(4);
-
-            // if (this.validPacketType(type))
-                this.log.info(`Received packet of type ${type} with length ${length}...`);
 
             if (length > 0) {
                 const data = this.socket.read(length);
@@ -191,7 +181,7 @@ class CyncPlatform {
     }
 
     handleStatus(packet) {
-        this.log.info(`Received status packet: ${packet.data.toString('hex')}`);
+        // this.log.info(`Received status packet: ${packet.data.toString('hex')}`);
     }
 
     handleSync(packet) {
