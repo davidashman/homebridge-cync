@@ -84,10 +84,8 @@ class CyncPlatform {
     }
 
     readPackets() {
-        let packet = {};
-        do {
-            packet = this.readPacket();
-
+        let packet = this.readPacket();
+        while (packet) {
             switch (packet.type) {
                 case PACKET_TYPE_AUTH:
                     this.handleConnect(packet);
@@ -96,7 +94,9 @@ class CyncPlatform {
                     this.handleStatus(packet);
                     break;
             }
-        } while (packet);
+
+            packet = this.readPacket();
+        }
     }
 
     readPacket() {
