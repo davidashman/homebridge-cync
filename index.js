@@ -31,7 +31,7 @@ class CyncPlatform {
 
                 setInterval(() => {
                     this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
-                }, 60000);
+                }, 2000);
             })
         })
     }
