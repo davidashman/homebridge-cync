@@ -163,7 +163,7 @@ class CyncPlatform {
             data.writeUInt8(0x18);
             data.writeUInt32BE(bulb.switchID, 1);
             data.writeUInt16BE(this.seq++, 5);
-            data.write('007e00000000f85206000000ffff0000567e', 7, 36, 'hex');
+            data.write('007e00000000f85206000000ffff0000567e', 7, 18, 'hex');
             this.writePacket(PACKET_TYPE_STATUS, data);
         }
     }
