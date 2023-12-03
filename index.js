@@ -68,36 +68,18 @@ class CyncPlatform {
             data.writeUInt8(0xb4, this.config.authorize.length + 9);
 
             this.log.info("Sending login packet...");
-            this.writePacket(PACKET_TYPE_AUTH, data, () => {
-                const response = this.readPacket();
-                if (response) {
-                    if (response.type == PACKET_TYPE_AUTH && response.data.readUInt16BE() == 0) {
-                        this.connected = true;
-                        this.log.info("Cync server connected.");
-                    }
-                    else {
-                        this.log.info("Server authentication failed.");
-                    }
-                }
-                else {
-                    this.log.info("Failed to connect to server.");
-                }
-            });
+            this.writePacket(PACKET_TYPE_AUTH, data);
         }
     }
 
-    writePacket(type, data, cb) {
+    writePacket(type, data) {
         const packet = Buffer.allocUnsafe(data.length + 5);
         packet.writeUInt8((type << 4) | 3);
         packet.writeUInt32BE(0, 1);
         packet.writeUInt8(data.length, 4);
         data.copy(packet, 5);
 
-        if (!this.socket.write(packet)) {
-            this.socket.once('drain', cb);
-        } else {
-            process.nextTick(cb);
-        }
+        this.socket.write(packet);
     }
 
     readPacket() {
@@ -115,15 +97,30 @@ class CyncPlatform {
             if (data.length == length)
             {
                 this.log.info(`Returning packet of type ${type}`);
-                return {
+                const packet = {
                     type: type,
                     length: length,
                     data: data
                 }
+
+                switch (packet.type) {
+                    case PACKET_TYPE_AUTH:
+                        this.handleConnect(packet);
+                        break;
+                }
             }
         }
+    }
 
-        return null;
+    handleConnect(packet) {
+        if (packet.data.readUInt16BE() == 0) {
+            this.connected = true;
+            this.log.info("Cync server connected.");
+        }
+        else {
+            this.connected = false;
+            this.log.info("Server authentication failed.");
+        }
     }
 
     lightBulb(deviceID) {
