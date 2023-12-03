@@ -79,8 +79,6 @@ class CyncPlatform {
             data.writeUInt8(this.config.authorize.length, 6);
             data.write(this.config.authorize, 7, this.config.authorize.length, 'ascii');
             data.writeUInt8(0xb4, this.config.authorize.length + 9);
-
-            this.log.info("Sending login packet...");
             this.writePacket(PACKET_TYPE_AUTH, data);
         }
     }
@@ -196,9 +194,9 @@ class CyncPlatform {
             const brightness = isOn ? status.readUInt8(5) : 0;
             const colorTemp = status.readUInt8(6);
 
-            this.log.info(`Got status for switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}, tone ${colorTemp}`);
             const bulb = this.lightBulb(meshID);
             if (bulb) {
+                this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}, tone ${colorTemp}`);
                 bulb.updateStatus(isOn, brightness, colorTemp);
             }
         }
@@ -212,9 +210,9 @@ class CyncPlatform {
             const isOn = packet.data.readUInt8(27) > 0;
             const brightness = isOn ? packet.data.readUInt8(28) : 0;
 
-            this.log.info(`Got status sync for switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
             const bulb = this.lightBulb(meshID);
             if (bulb) {
+                this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
                 bulb.updateStatus(isOn, brightness, bulb.colorTemp);
             }
         }
