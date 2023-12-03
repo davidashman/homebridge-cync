@@ -8,7 +8,7 @@ import { Buffer } from 'node:buffer';
 let Service;
 let Characteristic;
 
-const PACKET_TYPE_AUTH = 0x13;
+const PACKET_TYPE_AUTH = 1;
 
 class CyncPlatform {
 
@@ -43,21 +43,6 @@ class CyncPlatform {
         this.log.info(`Cync login response: ${JSON.stringify(data)}`);
         this.accessToken = data.access_token;
         this.log.info(`Access token: ${this.accessToken}`);
-    }
-
-    writePacket(type, data, cb) {
-        const packet = Buffer.allocUnsafe(data.length + 5);
-        packet.writeUInt8(type);
-        packet.writeUInt16BE(0, 1);
-        packet.writeUInt8(0, 3);
-        packet.writeUInt8(data.length, 4);
-        data.copy(packet, 5);
-
-        if (!this.socket.write(packet)) {
-            this.socket.once('drain', cb);
-        } else {
-            process.nextTick(cb);
-        }
     }
 
     connect() {
@@ -101,12 +86,26 @@ class CyncPlatform {
         }
     }
 
+    writePacket(type, data, cb) {
+        const packet = Buffer.allocUnsafe(data.length + 5);
+        packet.writeUInt8(((type << 4) | 3);
+        packet.writeUInt32BE(0, 1);
+        packet.writeUInt8(data.length, 4);
+        data.copy(packet, 5);
+
+        if (!this.socket.write(packet)) {
+            this.socket.once('drain', cb);
+        } else {
+            process.nextTick(cb);
+        }
+    }
+
     readPacket() {
         // First read the header
         const header = this.socket.read(5);
         if (header) {
             this.log.info(`Packet header: ${header.toString('hex')}`);
-            const type = header.readUInt8();
+            const type = header.readUInt8() >>> 4;
             const length = header.readUInt8(4);
             this.log.info(`Received packet of length ${length}...`);
 
