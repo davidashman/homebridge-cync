@@ -159,7 +159,7 @@ class CyncPlatform {
             if (length > 0) {
                 const data = this.socket.read(length);
 
-                this.log.info(`Got packet with type ${type}, header ${header.toString('hex')} and body ${data.toString('hex')}`);
+                // this.log.info(`Got packet with type ${type}, header ${header.toString('hex')} and body ${data.toString('hex')}`);
 
                 if (data.length == length)
                 {
@@ -169,9 +169,9 @@ class CyncPlatform {
                         data: data
                     }
                 }
-                else {
-                    this.log.info("Packet length doesn't match.");
-                }
+                // else {
+                //     this.log.info("Packet length doesn't match.");
+                // }
             }
             else {
                 this.log.info(`Got empty packet with type ${type}, header ${header.toString('hex')}`);
