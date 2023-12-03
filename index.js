@@ -201,7 +201,7 @@ class CyncPlatform {
             const brightness = isOn ? status.readUInt8(5) : 0;
             const colorTemp = status.readUInt8(6);
 
-            this.log.info(`Got status for ${device} with switch ID ${switchID} - on? ${isOn}, brightness ${brightness}, tone ${tone}`);
+            this.log.info(`Got status for switch ID ${switchID} - on? ${isOn}, brightness ${brightness}, tone ${tone}`);
         }
     }
 
