@@ -129,7 +129,7 @@ class CyncPlatform {
             const type = (header.readUInt8() >>> 4);
             const length = header.readUInt8(4);
 
-            if (validPacketType(type))
+            if (this.validPacketType(type))
                 this.log.info(`Received packet of type ${type} with length ${length}...`);
 
             if (length > 0) {
