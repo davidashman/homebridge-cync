@@ -30,7 +30,7 @@ class CyncPlatform {
                 this.registerLights();
 
                 setInterval(() => {
-                    this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
+                    this.ping();
                 }, 2000);
             })
         })
@@ -80,6 +80,12 @@ class CyncPlatform {
         }
     }
 
+    ping() {
+        if (this.connected) {
+            this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
+        }
+    }
+
     writePacket(type, data) {
         const packet = Buffer.allocUnsafe(data.length + 5);
         packet.writeUInt8((type << 4) | 3);
@@ -112,6 +118,10 @@ class CyncPlatform {
         }
     }
 
+    validPacketType(type) {
+        return type == PACKET_TYPE_AUTH || type == PACKET_TYPE_STATUS;
+    }
+
     readPacket() {
         // First read the header
         const header = this.socket.read(5);
@@ -119,7 +129,7 @@ class CyncPlatform {
             const type = (header.readUInt8() >>> 4);
             const length = header.readUInt8(4);
 
-            if (type != PACKET_TYPE_PING)
+            if (validPacketType(type))
                 this.log.info(`Received packet of type ${type} with length ${length}...`);
 
             if (length > 0) {
