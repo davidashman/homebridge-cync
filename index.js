@@ -9,6 +9,7 @@ let Service;
 let Characteristic;
 
 const PACKET_TYPE_AUTH = 1;
+const PACKET_TYPE_STATUS = 4;
 
 class CyncPlatform {
 
@@ -82,6 +83,22 @@ class CyncPlatform {
         this.socket.write(packet);
     }
 
+    readPackets() {
+        let packet = {};
+        do {
+            packet = this.readPacket();
+
+            switch (packet.type) {
+                case PACKET_TYPE_AUTH:
+                    this.handleConnect(packet);
+                    break;
+                case PACKET_TYPE_STATUS:
+                    this.handleStatus(packet);
+                    break;
+            }
+        } while (packet);
+    }
+
     readPacket() {
         // First read the header
         const header = this.socket.read(5);
@@ -97,19 +114,15 @@ class CyncPlatform {
             if (data.length == length)
             {
                 this.log.info(`Returning packet of type ${type}`);
-                const packet = {
+                return {
                     type: type,
                     length: length,
                     data: data
                 }
-
-                switch (packet.type) {
-                    case PACKET_TYPE_AUTH:
-                        this.handleConnect(packet);
-                        break;
-                }
             }
         }
+
+        return null;
     }
 
     handleConnect(packet) {
@@ -120,6 +133,33 @@ class CyncPlatform {
         else {
             this.connected = false;
             this.log.info("Server authentication failed.");
+        }
+    }
+
+    handleStatus(packet) {
+        const switchID = packet.data.readUInt32BE();
+        const length = packet.data.readUInt8(14);
+        const data = packet.data.subarray(15);
+
+        if (length > data.length || length < 6) {
+            this.log.info("Status buffer underflow");
+            return;
+        }
+
+        const statusData = data.subarray(6, length + 6);
+        if (statusData.length % 24 != 0) {
+            this.log.info(`Status packet length is wrong: ${statusData.length}`);
+            return;
+        }
+
+        for (let statusOffset = 0; statusOffset < statusData.length; statusOffset += 24) {
+            const status = statusData.subarray(statusOffset, statusOffset + 24);
+            const device = status.readUInt8(1);
+            const brightness = status.readUInt8(13);
+            const tone = status.readUInt8(17);
+            const isOn = status.readUInt8(9) != 0;
+
+            this.log.info(`Got status for ${device} with switch ID ${switchID} - on? ${isOn}, brightness ${brightness}, tone ${tone}`);
         }
     }
 
@@ -143,22 +183,17 @@ class CyncPlatform {
             if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
                 for (const bulb of homeData.bulbsArray) {
                     const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
-                    if (this.accessories.find(accessory => accessory.UUID === uuid)) {
-                        this.log.info(`Skipping ${bulb.displayName}...`);
+                    let accessory = this.accessories.find(accessory => accessory.UUID === uuid);
+                    if (accessory) {
+                        this.checkServices(bulb, accessory);
+                        this.log.info(`Skipping bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
                     }
                     else {
-                        this.log.info(`Registering ${bulb.displayName}...`);
-
                         // create a new accessory
-                        const accessory = new this.api.platformAccessory(bulb.displayName, uuid);
-                        accessory.context.displayName = bulb.displayName;
-                        accessory.context.deviceID = bulb.deviceID;
-                        accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
-                        accessory.context.switchID = bulb.switchID || 0;
+                        accessory = new this.api.platformAccessory(bulb.displayName, uuid);
+                        this.checkServices(bulb, accessory);
 
-                        this.checkServices(accessory);
-
-                        this.log.info(`Creating bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} and UUID ${accessory.UUID}.`);
+                        this.log.info(`Creating bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
                         this.lights.push(new LightBulb(this.log, accessory, this));
 
                         this.log.info(`Registering bulb ${accessory.context.displayName} with ID ${accessory.context.deviceID}`);
@@ -187,7 +222,12 @@ class CyncPlatform {
         }
     }
 
-    checkServices(accessory) {
+    checkServices(bulb, accessory) {
+        accessory.context.displayName = bulb.displayName;
+        accessory.context.deviceID = bulb.deviceID;
+        accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
+        accessory.context.switchID = bulb.switchID || 0;
+
         if (!accessory.getService(Service.Lightbulb)) {
             accessory.addService(new Service.Lightbulb(accessory.context.displayName));
         }
