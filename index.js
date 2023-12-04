@@ -200,7 +200,7 @@ class CyncPlatform {
             footer.writeUInt8(0x56, 1);
             footer.writeUInt8(0x7e, 2);
 
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, footer, true);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, footer, false);
         }
     }
 
@@ -277,7 +277,6 @@ class CyncPlatform {
 
             const bulb = this.lightBulb(meshID);
             if (bulb) {
-                this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}`);
                 bulb.updateStatus(isOn, brightness, colorTemp);
             }
         }
@@ -399,6 +398,7 @@ class LightBulb {
     }
 
     updateStatus(isOn, brightness, colorTemp) {
+        this.log.info(`Updating switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}`);
         this.on = isOn;
         this.brightness = brightness;
         this.colorTemp = colorTemp;
