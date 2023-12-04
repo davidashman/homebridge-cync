@@ -202,7 +202,7 @@ class CyncPlatform {
     requestUpdate() {
         for (const bulb of this.lights) {
             const data = Buffer.alloc(7);
-            data.writeUInt32BE(switchID);
+            data.writeUInt32BE(bulb.switchID);
             data.writeUInt16BE(this.seq++, 4);
             this.writePacket(PACKET_TYPE_UPDATE, data);
         }
