@@ -158,6 +158,7 @@ class CyncPlatform {
         const header = this.socket.read(5);
         if (header) {
             const type = (header.readUInt8() >>> 4);
+            const isResponse = (header.readUInt8() & 8) != 0;
             const length = header.readUInt8(4);
 
             if (length > 0) {
@@ -170,6 +171,7 @@ class CyncPlatform {
                     return {
                         type: type,
                         length: length,
+                        isResponse: isResponse,
                         data: data
                     }
                 }
@@ -211,10 +213,13 @@ class CyncPlatform {
         const switchID = packet.data.readUInt32BE();
         const responseID = packet.data.readUInt16BE(4);
 
-        const data = Buffer.alloc(7);
-        data.writeUInt32BE(switchID);
-        data.writeUInt16BE(responseID, 4);
-        this.writePacket(PACKET_TYPE_STATUS, data, true);
+        if (!packet.isResponse) {
+            // send a response
+            const data = Buffer.alloc(7);
+            data.writeUInt32BE(switchID);
+            data.writeUInt16BE(responseID, 4);
+            this.writePacket(PACKET_TYPE_STATUS, data, true);
+        }
 
         if (packet.length >= 25) {
             const subtype = packet.data.readUInt8(13);
