@@ -200,7 +200,7 @@ class CyncPlatform {
             footer.writeUInt8(0x56, 1);
             footer.writeUInt8(0x7e, 2);
 
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, footer);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, footer, true);
         }
     }
 
@@ -438,7 +438,7 @@ class LightBulb {
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, footer);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, footer, true);
         }
     }
 
@@ -456,7 +456,7 @@ class LightBulb {
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_BRIGHTNESS, request, footer);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_BRIGHTNESS, request, footer, true);
         }
     }
 }
