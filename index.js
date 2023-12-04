@@ -43,14 +43,14 @@ class CyncPlatform {
                 setInterval(() => {
                     this.ping();
                 }, 5000);
-
-                setInterval(() => {
-                    this.queryStatus();
-                }, 2000);
-
-                setInterval(() => {
-                    this.requestUpdate();
-                }, 2000);
+                //
+                // setInterval(() => {
+                //     this.queryStatus();
+                // }, 2000);
+                //
+                // setInterval(() => {
+                //     this.requestUpdate();
+                // }, 2000);
             })
         })
     }
