@@ -404,7 +404,7 @@ class LightBulb {
     }
 
     updateStatus(isOn, brightness, colorTemp, rgb) {
-        this.log.info(`Updating switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}`);
+        this.log.info(`Updating switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}, rgb ${JSON.stringify(rgb)}`);
         this.on = isOn;
         this.brightness = brightness;
         this.colorTemp = colorTemp;
