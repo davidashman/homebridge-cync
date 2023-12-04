@@ -12,6 +12,7 @@ const PACKET_TYPE_AUTH = 1;
 const PACKET_TYPE_SYNC = 4;
 const PACKET_TYPE_STATUS = 7;
 const PACKET_TYPE_STATUS_SYNC = 8;
+const PACKET_TYPE_UPOATE = 10;
 const PACKET_TYPE_PING = 13;
 
 const PACKET_SUBTYPE_SET_STATUS = 0xd0;
@@ -45,6 +46,10 @@ class CyncPlatform {
 
                 setInterval(() => {
                     this.queryStatus();
+                }, 2000);
+
+                setInterval(() => {
+                    this.requestUpdate();
                 }, 2000);
             })
         })
@@ -191,6 +196,15 @@ class CyncPlatform {
             const data = Buffer.alloc(6);
             data.writeUInt16BE(0xffff, 3);
             this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data);
+        }
+    }
+
+    requestUpdate() {
+        for (const bulb of this.lights) {
+            const data = Buffer.alloc(7);
+            data.writeUInt32BE(switchID);
+            data.writeUInt16BE(this.seq++, 4);
+            this.writePacket(PACKET_TYPE_UPDATE, data);
         }
     }
 
