@@ -224,7 +224,43 @@ class CyncPlatform {
         data.writeUInt16BE(responseID, 4);
         this.writePacket(PACKET_TYPE_STATUS, data);
 
-        this.log.info(`Received status packet of length ${packet.length}: ${packet.data.toString('hex')}`);
+        if (packet.length >= 25) {
+            const subtype = packet.data.readUInt8(13);
+            let status = packet.data;
+            switch (subtype) {
+                case PACKET_SUBTYPE_GET_STATUS:
+                    const meshID = status.readUInt8(21);
+                    const state = status.readUInt8(27) > 0;
+                    const brightness = state ? status.readUInt8(28) : 0;
+
+                    const bulb = this.lightBulb(meshID);
+                    if (bulb) {
+                        bulb.updateStatus(state, brightness, bulb.colorTemp);
+                    }
+                case PACKET_SUBTYPE_GET_STATUS_PAGINATED:
+                    status = status.subarray(22);
+                    while (status.length > 24) {
+                        const meshID = status.readUInt8();
+                        const state = status.readUInt8(8) > 0;
+                        const brightness = state ? status.readUInt8(12) : 0;
+                        const colorTemp = status.readUInt8(16);
+                        const rgb = {
+                            r: status.readUInt8(20),
+                            g: status.readUInt8(21),
+                            b: status.readUInt8(22),
+                            active: status.readUInt8(16) == 254
+                        };
+
+                        const bulb = this.lightBulb(meshID);
+                        if (bulb) {
+                            bulb.updateStatus(state, brightness, colorTemp);
+                        }
+
+                        status = status.subarray(24);
+                    }
+            }
+        }
+        // this.log.info(`Received status packet of length ${packet.length}: ${packet.data.toString('hex')}`);
     }
 
     handleSync(packet) {
