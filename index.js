@@ -164,7 +164,8 @@ class CyncPlatform {
             if (length > 0) {
                 const data = this.socket.read(length);
 
-                this.log.info(`Got packet with type ${type}, header ${header.toString('hex')} and body ${data.toString('hex')}`);
+                if (!isResponse)
+                    this.log.info(`Got packet with type ${type}, header ${header.toString('hex')} and body ${data.toString('hex')}`);
 
                 if (data.length == length)
                 {
@@ -194,7 +195,7 @@ class CyncPlatform {
             data.writeUInt8(0x56, 4);
             data.writeUInt8(0x7e, 5);
 
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, true);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS, data, false);
         }
     }
 
