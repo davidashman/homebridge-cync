@@ -195,7 +195,7 @@ class CyncPlatform {
             data.writeUInt8(0x56, 4);
             data.writeUInt8(0x7e, 5);
 
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS, data, false);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, true);
         }
     }
 
@@ -281,7 +281,7 @@ class CyncPlatform {
     }
 
     handleStatusSync(packet) {
-        this.log.info(`Got status sync packet: ${packet.data.toString('hex')}`);
+        // this.log.info(`Got status sync packet: ${packet.data.toString('hex')}`);
         if (packet.length >= 33) {
             const switchID = packet.data.readUInt32BE();
             const meshID = packet.data.readUInt8(21);
@@ -471,7 +471,7 @@ class LightBulb {
             this.on = value;
 
             const request = Buffer.alloc(13);
-            request.writeUInt16LE(this.meshID, 3);
+            request.writeUInt16BE(this.meshID, 3);
             request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
             request.writeUInt8(this.on, 8);
             request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
@@ -487,7 +487,7 @@ class LightBulb {
             this.brightness = value;
 
             const request = Buffer.alloc(16);
-            request.writeUInt16LE(this.meshID, 3);
+            request.writeUInt16BE(this.meshID, 3);
             request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 5);
             request.writeUInt8(this.on, 8);
             request.writeUInt8(this.brightness, 9);
@@ -496,7 +496,7 @@ class LightBulb {
             request.writeUInt8(this.rgb.g, 12);
             request.writeUInt8(this.rgb.b, 13);
             request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 14);
-            request.writeUInt8(0x7e, 5);
+            request.writeUInt8(0x7e, 15);
 
             this.log.info(`Sending brightness update: ${request.toString('hex')}`);
             this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
