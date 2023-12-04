@@ -488,7 +488,7 @@ class LightBulb {
         if (value != this.brightness) {
             this.brightness = value;
 
-            const request = Buffer.alloc(17);
+            const request = Buffer.alloc(16);
             request.writeUInt16LE(this.meshID, 6);
             request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 8);
             request.writeUInt8(this.on, 11);
@@ -496,9 +496,9 @@ class LightBulb {
             request.writeUInt8(this.colorTemp, 13);
             request.writeUInt8(this.rgb.r, 14);
             request.writeUInt8(this.rgb.g, 15);
-            request.writeUInt8(this.rgb.b, 16);
 
             const footer = Buffer.alloc(3);
+            footer.writeUInt8(this.rgb.b, 0);
             footer.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 1);
             footer.writeUInt8(0x7e, 2);
 
