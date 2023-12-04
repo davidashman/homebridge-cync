@@ -214,7 +214,7 @@ class CyncPlatform {
         const data = Buffer.alloc(7);
         data.writeUInt32BE(switchID);
         data.writeUInt16BE(responseID, 4);
-        this.writePacket(PACKET_TYPE_STATUS, data);
+        this.writePacket(PACKET_TYPE_STATUS, data, true);
 
         if (packet.length >= 25) {
             const subtype = packet.data.readUInt8(13);
@@ -396,7 +396,7 @@ class LightBulb {
     }
 
     updateStatus(isOn, brightness, colorTemp, rgb) {
-        if (isOn != this.on || brightness != this.brightness || colorTemp != this.colorTemp)
+        // if (isOn != this.on || brightness != this.brightness || colorTemp != this.colorTemp)
             this.log.info(`Updating switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}, rgb ${JSON.stringify(rgb)}`);
 
         this.on = isOn;
