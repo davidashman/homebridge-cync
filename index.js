@@ -116,14 +116,14 @@ class CyncPlatform {
     }
 
     sendRequest(type, switchID, subtype, request, log = false) {
-        const data = Buffer.alloc(21 + request.length);
+        const data = Buffer.alloc(18 + request.length);
         data.writeUInt32BE(switchID);
         data.writeUInt16BE(this.seq++, 4);
         data.writeUInt8(0x7e, 7);
         data.writeUInt8(0xf8, 12);
         data.writeUInt8(subtype, 13); // status query subtype
         data.writeUInt8(request.length, 14);
-        request.copy(data, 21);
+        request.copy(data, 18);
 
         if (log)
             this.log.info(`Sending request: ${data.toString('hex')}`);
