@@ -40,9 +40,9 @@ class CyncPlatform {
                 this.connect();
                 this.registerLights();
 
-                // setInterval(() => {
-                //     this.ping();
-                // }, 5000);
+                setInterval(() => {
+                    this.ping();
+                }, 5000);
 
                 setInterval(() => {
                     this.queryStatus();
@@ -192,7 +192,7 @@ class CyncPlatform {
             data.writeUInt8(0x56, 4);
             data.writeUInt8(0x7e, 5);
 
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, false);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, true);
         }
     }
 
@@ -472,7 +472,7 @@ class LightBulb {
             request.writeUInt8(0x7e, 12);
 
             this.log.info(`Sending status update: ${request.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, false);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
         }
     }
 
@@ -492,8 +492,8 @@ class LightBulb {
             request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 14);
             request.writeUInt8(0x7e, 5);
 
-            this.log.info(`Sending status update: ${request.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, false);
+            this.log.info(`Sending brightness update: ${request.toString('hex')}`);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
         }
     }
 }
