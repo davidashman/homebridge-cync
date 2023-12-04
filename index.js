@@ -204,15 +204,6 @@ class CyncPlatform {
         }
     }
 
-    requestUpdate() {
-        for (const bulb of this.lights) {
-            const data = Buffer.alloc(7);
-            data.writeUInt32BE(bulb.switchID);
-            data.writeUInt16BE(this.seq++, 4);
-            this.writePacket(PACKET_TYPE_UPDATE, data);
-        }
-    }
-
     handleConnect(packet) {
         if (packet.data.readUInt16BE() == 0) {
             this.connected = true;
@@ -225,7 +216,15 @@ class CyncPlatform {
     }
 
     handleStatus(packet) {
-        // this.log.info(`Received status packet: ${packet.data.toString('hex')}`);
+        const switchID = packet.data.readUInt32BE();
+        const responseID = packet.data.readUInt16BE(4);
+
+        const data = Buffer.alloc(7);
+        data.writeUInt32BE(switchID);
+        data.writeUInt16BE(responseID, 4);
+        this.writePacket(PACKET_TYPE_STATUS, data);
+
+        this.log.info(`Received status packet of length ${packet.length}: ${packet.data.toString('hex')}`);
     }
 
     handleSync(packet) {
@@ -446,10 +445,10 @@ class LightBulb {
         if (value != this.brightness) {
             this.brightness = value;
 
-            const request = Buffer.alloc(12);
+            const request = Buffer.alloc(11);
             request.writeUInt16LE(this.meshID, 6);
             request.writeUInt8(PACKET_SUBTYPE_SET_BRIGHTNESS, 8);
-            request.writeUInt8(this.brightness, 11);
+            request.writeUInt8(this.brightness, 10);
 
             const footer = Buffer.alloc(3);
             footer.writeUInt8((449 + this.brightness + this.meshID) % 256, 1);
