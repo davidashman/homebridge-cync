@@ -433,7 +433,7 @@ class LightBulb {
             request.writeUInt8(this.brightness, 11);
 
             const footer = Buffer.alloc(3);
-            footer.writeUInt8((433 + this.brightness + this.meshID) % 256, 1);
+            footer.writeUInt8((449 + this.brightness + this.meshID) % 256, 1);
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
