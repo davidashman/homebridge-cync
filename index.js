@@ -40,17 +40,13 @@ class CyncPlatform {
                 this.connect();
                 this.registerLights();
 
-                setInterval(() => {
-                    this.ping();
-                }, 5000);
+                // setInterval(() => {
+                //     this.ping();
+                // }, 5000);
 
                 setInterval(() => {
                     this.queryStatus();
                 }, 2000);
-
-                // setInterval(() => {
-                //     this.requestUpdate();
-                // }, 2000);
             })
         })
     }
@@ -119,17 +115,15 @@ class CyncPlatform {
         this.socket.write(packet);
     }
 
-    sendRequest(type, switchID, subtype, request, footer = null, log = false) {
-        const data = Buffer.alloc(18 + request.length);
+    sendRequest(type, switchID, subtype, request, log = false) {
+        const data = Buffer.alloc(21 + request.length);
         data.writeUInt32BE(switchID);
         data.writeUInt16BE(this.seq++, 4);
         data.writeUInt8(0x7e, 7);
         data.writeUInt8(0xf8, 12);
         data.writeUInt8(subtype, 13); // status query subtype
         data.writeUInt8(request.length, 14);
-        request.copy(data, 15);
-        if (footer)
-            footer.copy(data, 15 + request.length);
+        request.copy(data, 21);
 
         if (log)
             this.log.info(`Sending request: ${data.toString('hex')}`);
@@ -194,13 +188,11 @@ class CyncPlatform {
     queryStatus() {
         for (const bulb of this.lights) {
             const data = Buffer.alloc(6);
-            data.writeUInt16BE(0xffff, 3);
+            data.writeUInt16BE(0xffff);
+            data.writeUInt8(0x56, 4);
+            data.writeUInt8(0x7e, 5);
 
-            const footer = Buffer.alloc(3);
-            footer.writeUInt8(0x56, 1);
-            footer.writeUInt8(0x7e, 2);
-
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, footer, false);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, false);
         }
     }
 
@@ -473,16 +465,14 @@ class LightBulb {
             this.on = value;
 
             const request = Buffer.alloc(13);
-            request.writeUInt16LE(this.meshID, 6);
-            request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 8);
-            request.writeUInt8(this.on, 11);
+            request.writeUInt16LE(this.meshID, 3);
+            request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
+            request.writeUInt8(this.on, 8);
+            request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
+            request.writeUInt8(0x7e, 12);
 
-            const footer = Buffer.alloc(3);
-            footer.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 1);
-            footer.writeUInt8(0x7e, 2);
-
-            this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, footer, false);
+            this.log.info(`Sending status update: ${request.toString('hex')}`);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, false);
         }
     }
 
@@ -491,21 +481,19 @@ class LightBulb {
             this.brightness = value;
 
             const request = Buffer.alloc(16);
-            request.writeUInt16LE(this.meshID, 6);
-            request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 8);
-            request.writeUInt8(this.on, 11);
-            request.writeUInt8(this.brightness, 12);
-            request.writeUInt8(this.colorTemp, 13);
-            request.writeUInt8(this.rgb.r, 14);
-            request.writeUInt8(this.rgb.g, 15);
+            request.writeUInt16LE(this.meshID, 3);
+            request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 5);
+            request.writeUInt8(this.on, 8);
+            request.writeUInt8(this.brightness, 9);
+            request.writeUInt8(this.colorTemp, 10);
+            request.writeUInt8(this.rgb.r, 11);
+            request.writeUInt8(this.rgb.g, 12);
+            request.writeUInt8(this.rgb.b, 13);
+            request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 14);
+            request.writeUInt8(0x7e, 5);
 
-            const footer = Buffer.alloc(3);
-            footer.writeUInt8(this.rgb.b, 0);
-            footer.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 1);
-            footer.writeUInt8(0x7e, 2);
-
-            this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, footer, false);
+            this.log.info(`Sending status update: ${request.toString('hex')}`);
+            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, false);
         }
     }
 }
