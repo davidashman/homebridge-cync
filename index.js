@@ -18,7 +18,7 @@ const PACKET_TYPE_PING = 13;
 const PACKET_SUBTYPE_SET_STATUS = 0xd0;
 const PACKET_SUBTYPE_SET_BRIGHTNESS = 0xd2;
 const PACKET_SUBTYPE_SET_COLOR_TEMP = 0xe2;
-const PACKET_SUBTYPE_SET_COMBO = 0xf0;
+const PACKET_SUBTYPE_SET_STATE = 0xf0;
 const PACKET_SUBTYPE_GET_STATUS = 0xdb;
 const PACKET_SUBTYPE_GET_STATUS_PAGINATED = 0x52;
 
@@ -235,7 +235,7 @@ class CyncPlatform {
 
                     const bulb = this.lightBulb(meshID);
                     if (bulb) {
-                        bulb.updateStatus(state, brightness, bulb.colorTemp);
+                        bulb.updateStatus(state, brightness, bulb.colorTemp, bulb.rgb);
                     }
                 case PACKET_SUBTYPE_GET_STATUS_PAGINATED:
                     status = status.subarray(22);
@@ -253,7 +253,7 @@ class CyncPlatform {
 
                         const bulb = this.lightBulb(meshID);
                         if (bulb) {
-                            bulb.updateStatus(state, brightness, colorTemp);
+                            bulb.updateStatus(state, brightness, colorTemp, rgb);
                         }
 
                         status = status.subarray(24);
@@ -277,7 +277,7 @@ class CyncPlatform {
 
             const bulb = this.lightBulb(meshID);
             if (bulb) {
-                bulb.updateStatus(isOn, brightness, colorTemp);
+                bulb.updateStatus(isOn, brightness, colorTemp, bulb.rgb);
             }
         }
     }
@@ -293,7 +293,7 @@ class CyncPlatform {
             const bulb = this.lightBulb(meshID);
             if (bulb) {
                 this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
-                bulb.updateStatus(isOn, brightness, bulb.colorTemp);
+                bulb.updateStatus(isOn, brightness, bulb.colorTemp, bulb.rgb);
             }
         }
     }
@@ -385,6 +385,12 @@ class LightBulb {
         this.hub = hub;
         this.brightness = 100;
         this.colorTemp = 0;
+        this.rgb = {
+            r: 255,
+            g: 255,
+            b: 255,
+            active: false
+        }
 
         const bulb = accessory.getService(Service.Lightbulb);
         bulb.getCharacteristic(Characteristic.On)
@@ -397,11 +403,12 @@ class LightBulb {
             });
     }
 
-    updateStatus(isOn, brightness, colorTemp) {
+    updateStatus(isOn, brightness, colorTemp, rgb) {
         this.log.info(`Updating switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}`);
         this.on = isOn;
         this.brightness = brightness;
         this.colorTemp = colorTemp;
+        this.rgb = rgb;
 
         this.accessory.getService(Service.Lightbulb)
             .getCharacteristic(Characteristic.On)
@@ -469,7 +476,7 @@ class LightBulb {
             request.writeUInt8(this.on, 11);
 
             const footer = Buffer.alloc(3);
-            footer.writeUInt8((429 + (this.on ? 1 : 0) + this.meshID) % 256, 1);
+            footer.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 1);
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
@@ -483,11 +490,16 @@ class LightBulb {
 
             const request = Buffer.alloc(11);
             request.writeUInt16LE(this.meshID, 6);
-            request.writeUInt8(PACKET_SUBTYPE_SET_BRIGHTNESS, 8);
-            request.writeUInt8(this.brightness, 10);
+            request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 8);
+            request.writeUInt8(this.on, 11);
+            request.writeUInt8(this.brightness, 12);
+            request.writeUInt8(this.colorTemp, 13);
+            request.writeUInt8(this.rgb.r, 14);
+            request.writeUInt8(this.rgb.g, 15);
+            request.writeUInt8(this.rgb.b, 16);
 
             const footer = Buffer.alloc(3);
-            footer.writeUInt8((449 + this.brightness + this.meshID) % 256, 1);
+            footer.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 1);
             footer.writeUInt8(0x7e, 2);
 
             this.log.info(`Sending status update: ${request.toString('hex')}, footer ${footer.toString('hex')}`);
