@@ -43,11 +43,11 @@ class CyncPlatform {
                 setInterval(() => {
                     this.ping();
                 }, 5000);
-                //
-                // setInterval(() => {
-                //     this.queryStatus();
-                // }, 2000);
-                //
+
+                setInterval(() => {
+                    this.queryStatus();
+                }, 2000);
+
                 // setInterval(() => {
                 //     this.requestUpdate();
                 // }, 2000);
@@ -195,7 +195,12 @@ class CyncPlatform {
         for (const bulb of this.lights) {
             const data = Buffer.alloc(6);
             data.writeUInt16BE(0xffff, 3);
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data);
+
+            const footer = Buffer.alloc(3);
+            footer.writeUInt8(0x56, 1);
+            footer.writeUInt8(0x7e, 2);
+
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, footer);
         }
     }
 
