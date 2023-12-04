@@ -488,7 +488,7 @@ class LightBulb {
         if (value != this.brightness) {
             this.brightness = value;
 
-            const request = Buffer.alloc(11);
+            const request = Buffer.alloc(17);
             request.writeUInt16LE(this.meshID, 6);
             request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 8);
             request.writeUInt8(this.on, 11);
