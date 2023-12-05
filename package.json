@@ -1,10 +1,10 @@
 {
   "name": "homebridge-cync",
   "version": "1.0.0",
-  "description": "",
+  "description": "Connects Homebridge/HomeKit to Cync Direct Connect lightbulbs from GE.",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "cync-auth": "bin/authenticate"
   },
   "keywords": [
     "homebridge-plugin"
@@ -17,5 +17,9 @@
   "license": "ISC",
   "dependencies": {
     "node-fetch": "^3.3.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/davidashman/homebridge-cync.git"
   }
 }
