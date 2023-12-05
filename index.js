@@ -72,7 +72,7 @@ class CyncPlatform {
     }
 
     connect() {
-        if (!this.connected && retries > 0) {
+        if (!this.connected) {
             this.log.info("Connecting to Cync servers...");
             this.socket = net.connect(23778, "cm.gelighting.com");
             this.socket.on('readable', () => {
@@ -92,7 +92,7 @@ class CyncPlatform {
             data.writeUInt8(this.config.authorize.length, 6);
             data.write(this.config.authorize, 7, this.config.authorize.length, 'ascii');
             data.writeUInt8(0xb4, this.config.authorize.length + 9);
-            this.writePacket(PACKET_TYPE_AUTH, data);
+            this.socket.write(this.createPacket(PACKET_TYPE_AUTH, data));
         }
     }
 
@@ -110,7 +110,9 @@ class CyncPlatform {
     }
 
     ping() {
-        this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
+        if (this.connected) {
+            this.socket.write(this.createPacket(PACKET_TYPE_PING, PING_BUFFER));
+        }
     }
 
     flushQueue() {
@@ -120,12 +122,24 @@ class CyncPlatform {
         }
     }
 
-    writePacket(type, data, log = false) {
-        if (type != PACKET_TYPE_AUTH && !this.connected) {
-            this.log.info('Skipping packet because not connected.');
-            return;
-        }
+    sendPacket(type, data, log = false) {
+        const packet = this.createPacket(type, data);
+        if (this.connected) {
+            if (log)
+                this.log.info(`Sending packet: ${packet.toString('hex')}`);
 
+            this.socket.write(packet);
+        }
+        else {
+            if (log)
+                this.log.info(`Queueing packet: ${packet.toString('hex')}`);
+
+            // queue the packet
+            this.packetQueue.push(packet);
+        }
+    }
+
+    createPacket(type, data) {
         const packet = Buffer.alloc(data.length + 5);
         packet.writeUInt8((type << 4) | 3);
 
@@ -134,16 +148,7 @@ class CyncPlatform {
             data.copy(packet, 5);
         }
 
-        if (log)
-            this.log.info(`Sending packet: ${packet.toString('hex')}`);
-
-        if (!this.connected) {
-            // queue the packet
-            this.packetQueue.push(packet);
-        }
-        else {
-            this.socket.write(packet);
-        }
+        return packet;
     }
 
     sendRequest(type, switchID, subtype, request, log = false) {
@@ -159,7 +164,7 @@ class CyncPlatform {
         if (log)
             this.log.info(`Sending request: ${data.toString('hex')}`);
 
-        this.writePacket(type, data, log);
+        this.sendPacket(type, data, log);
     }
 
     printPacket(packet) {
@@ -233,7 +238,7 @@ class CyncPlatform {
         const data = Buffer.alloc(7);
         data.writeUInt32BE(bulb.switchID);
         data.writeUInt16BE(this.seq++, 4);
-        this.writePacket(PACKET_TYPE_CONNECTED, data, true);
+        this.sendPacket(PACKET_TYPE_CONNECTED, data, true);
 
         // check again in 5 minutes
         setTimeout(() => { this.updateConnectedDevice(bulb) }, 300000);
@@ -267,7 +272,7 @@ class CyncPlatform {
             const data = Buffer.alloc(7);
             data.writeUInt32BE(switchID);
             data.writeUInt16BE(responseID, 4);
-            this.writePacket(PACKET_TYPE_STATUS, data, true);
+            this.sendPacket(PACKET_TYPE_STATUS, data, true);
         }
 
         if (packet.length >= 25) {
