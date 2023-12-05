@@ -38,6 +38,8 @@ class CyncPlatform {
         this.config = config;
         this.api = api;
         this.seq = 1;
+        this.connectionTime = 0;
+        this.packetQueue = [];
 
         this.api.on('didFinishLaunching', () => {
             this.connect();
@@ -64,10 +66,13 @@ class CyncPlatform {
         this.log.info(`Cync login response: ${JSON.stringify(data)}`);
         this.accessToken = data.access_token;
         this.log.info(`Access token: ${this.accessToken}`);
+        if (!this.accessToken) {
+            this.log.error("Unable to authenticate with Cync servers.  Please verify you have a valid refresh token.");
+        }
     }
 
     connect() {
-        if (!this.connected) {
+        if (!this.connected && retries > 0) {
             this.log.info("Connecting to Cync servers...");
             this.socket = net.connect(23778, "cm.gelighting.com");
             this.socket.on('readable', () => {
@@ -76,7 +81,9 @@ class CyncPlatform {
             this.socket.on('end', () => {
                 this.log.info(`Connection to Cync has closed.`);
                 this.connected = false;
-                this.connect();
+
+                // Don't allow reconnects in any less than 10 seconds since the last successful connection
+                setTimeout(() => { this.connect(); }, Math.max(10000 - Date.now() + this.connectionTime, 0) );
             });
 
             const data = Buffer.alloc(this.config.authorize.length + 10);
@@ -91,8 +98,10 @@ class CyncPlatform {
 
     handleConnect(packet) {
         if (packet.data.readUInt16BE() == 0) {
-            this.connected = true;
             this.log.info("Cync server connected.");
+            this.flushQueue();
+            this.connected = true;
+            this.connectionTime = Date.now();
         }
         else {
             this.connected = false;
@@ -102,6 +111,13 @@ class CyncPlatform {
 
     ping() {
         this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
+    }
+
+    flushQueue() {
+        this.log.info(`Flushing log of ${this.packetQueue.length} packets.`);
+        while(this.packetQueue.length > 0) {
+            this.socket.write(this.packetQueue.shift());
+        }
     }
 
     writePacket(type, data, log = false) {
@@ -121,7 +137,13 @@ class CyncPlatform {
         if (log)
             this.log.info(`Sending packet: ${packet.toString('hex')}`);
 
-        this.socket.write(packet);
+        if (!this.connected) {
+            // queue the packet
+            this.packetQueue.push(packet);
+        }
+        else {
+            this.socket.write(packet);
+        }
     }
 
     sendRequest(type, switchID, subtype, request, log = false) {
@@ -327,53 +349,55 @@ class CyncPlatform {
     }
 
     async registerLights() {
-        this.log.info("Discovering homes...");
-        let r = await fetch(`https://api.gelighting.com/v2/user/${this.config.userID}/subscribe/devices`, {
-            headers: {'Access-Token': this.accessToken}
-        });
-        const data = await r.json();
-        this.log.info(`Received home response: ${JSON.stringify(data)}`);
-
-        for (const home of data) {
-            let homeR = await fetch(`https://api.gelighting.com/v2/product/${home.product_id}/device/${home.id}/property`, {
+        if (this.accessToken) {
+            this.log.info("Discovering homes...");
+            let r = await fetch(`https://api.gelighting.com/v2/user/${this.config.userID}/subscribe/devices`, {
                 headers: {'Access-Token': this.accessToken}
             });
-            const homeData = await homeR.json();
-            this.log.info(`Received device response: ${JSON.stringify(homeData)}`);
-            if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
-                const discovered = [];
+            const data = await r.json();
+            this.log.info(`Received home response: ${JSON.stringify(data)}`);
 
-                for (const bulb of homeData.bulbsArray) {
-                    const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
-                    let accessory = this.accessories.find(accessory => accessory.UUID === uuid);
+            for (const home of data) {
+                let homeR = await fetch(`https://api.gelighting.com/v2/product/${home.product_id}/device/${home.id}/property`, {
+                    headers: {'Access-Token': this.accessToken}
+                });
+                const homeData = await homeR.json();
+                this.log.info(`Received device response: ${JSON.stringify(homeData)}`);
+                if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
+                    const discovered = [];
 
-                    if (!accessory) {
-                        // create a new accessory
-                        accessory = new this.api.platformAccessory(bulb.displayName, uuid);
-                        accessory.addService(new Service.Lightbulb(accessory.context.displayName));
+                    for (const bulb of homeData.bulbsArray) {
+                        const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
+                        let accessory = this.accessories.find(accessory => accessory.UUID === uuid);
 
-                        this.log.info(`Registering bulb ${bulb.displayName}`);
-                        this.api.registerPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
+                        if (!accessory) {
+                            // create a new accessory
+                            accessory = new this.api.platformAccessory(bulb.displayName, uuid);
+                            accessory.addService(new Service.Lightbulb(accessory.context.displayName));
+
+                            this.log.info(`Registering bulb ${bulb.displayName}`);
+                            this.api.registerPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
+                        }
+
+                        accessory.context.displayName = bulb.displayName;
+                        accessory.context.deviceID = bulb.deviceID;
+                        accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
+                        accessory.context.switchID = bulb.switchID;
+
+                        let light = this.lightBulbBySwitchID(accessory.context.switchID);
+                        if (!light) {
+                            light = new LightBulb(this.log, accessory, this);
+                            this.lights.push(light);
+                        }
+
+                        this.updateConnectedDevice(light);
+                        discovered.push(uuid);
                     }
 
-                    accessory.context.displayName = bulb.displayName;
-                    accessory.context.deviceID = bulb.deviceID;
-                    accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
-                    accessory.context.switchID = bulb.switchID;
-
-                    let light = this.lightBulbBySwitchID(accessory.context.switchID);
-                    if (!light) {
-                        light = new LightBulb(this.log, accessory, this);
-                        this.lights.push(light);
+                    const remove = this.accessories.filter((accessory) => !discovered.includes(accessory.UUID));
+                    for (const accessory of remove) {
+                        this.api.unregisterPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
                     }
-
-                    this.updateConnectedDevice(light);
-                    discovered.push(uuid);
-                }
-
-                const remove = this.accessories.filter((accessory) => !discovered.includes(accessory.UUID));
-                for (const accessory of remove) {
-                    this.api.unregisterPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
                 }
             }
         }
