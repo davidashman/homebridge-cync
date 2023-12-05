@@ -4,6 +4,7 @@ import fetch from 'node-fetch';
 import process from 'node:process';
 import net from 'node:net';
 import { Buffer } from 'node:buffer';
+import convert from 'color-convert';
 
 let Service;
 let Characteristic;
@@ -43,12 +44,12 @@ class CyncPlatform {
 
         this.api.on('didFinishLaunching', () => {
             this.connect();
-            setInterval(() => { this.ping(); }, 180000);
+            setInterval(() => this.ping(), 180000);
 
             this.authenticate().then(() => {
                 this.registerLights();
             });
-        })
+        });
     }
 
     async authenticate() {
@@ -75,16 +76,8 @@ class CyncPlatform {
         if (!this.connected) {
             this.log.info("Connecting to Cync servers...");
             this.socket = net.connect(23778, "cm.gelighting.com");
-            this.socket.on('readable', () => {
-                this.readPackets();
-            });
-            this.socket.on('end', () => {
-                this.log.info(`Connection to Cync has closed.`);
-                this.connected = false;
-
-                // Don't allow reconnects in any less than 10 seconds since the last successful connection
-                setTimeout(() => { this.connect(); }, Math.max(10000 - Date.now() + this.connectionTime, 0) );
-            });
+            this.socket.on('readable', () => this.readPackets());
+            this.socket.on('end', () => this.disconnect());
 
             const data = Buffer.alloc(this.config.authorize.length + 10);
             data.writeUInt8(0x03);
@@ -94,6 +87,14 @@ class CyncPlatform {
             data.writeUInt8(0xb4, this.config.authorize.length + 9);
             this.socket.write(this.createPacket(PACKET_TYPE_AUTH, data));
         }
+    }
+
+    disconnect() {
+        this.log.info(`Connection to Cync has closed.`);
+        this.connected = false;
+
+        // Don't allow reconnects in any less than 10 seconds since the last successful connection
+        setTimeout(() => this.connect(), Math.max(10000 - Date.now() + this.connectionTime, 0));
     }
 
     handleConnect(packet) {
@@ -116,7 +117,7 @@ class CyncPlatform {
     }
 
     flushQueue() {
-        this.log.info(`Flushing log of ${this.packetQueue.length} packets.`);
+        this.log.info(`Flushing queue of ${this.packetQueue.length} packets.`);
         while(this.packetQueue.length > 0) {
             this.socket.write(this.packetQueue.shift());
         }
@@ -431,34 +432,33 @@ class LightBulb {
         this.meshID = accessory.context.meshID;
         this.on = false;
         this.hub = hub;
-        this.brightness = 100;
+        this.brightness = 0;
         this.colorTemp = 0;
-        this.rgb = {
-            r: 255,
-            g: 255,
-            b: 255,
-            active: false
-        }
+        this.cyncColorTemp = 0;
+        this.hue = 0;
+        this.saturation = 0;
+        this.rgb = [0, 0, 0];
 
         const bulb = accessory.getService(Service.Lightbulb);
-        bulb.getCharacteristic(Characteristic.On)
-            .onSet((value) => {
-                this.setOn(value);
-            });
+        bulb.getCharacteristic(Characteristic.On).onSet((value) => this.setOn(value));
 
         if (DEVICES_WITH_BRIGHTNESS.includes(accessory.context.deviceType)) {
-            bulb.getCharacteristic(Characteristic.Brightness)
-                .onSet((value) => {
-                    this.setBrightness(value);
-                });
+            bulb.getCharacteristic(Characteristic.Brightness).onSet((value) => this.setBrightness(value));
         }
 
         if (DEVICES_WITH_COLOR_TEMP.includes(accessory.context.deviceType)) {
-            bulb.getCharacteristic(Characteristic.ColorTemperature)
-                .onSet((value) => {
-                    this.setColorTemp(100 - Math.round(((value - 140) * 100) / 360));
-                });
+            bulb.getCharacteristic(Characteristic.ColorTemperature).onSet((value) => this.setColorTemp(value));
         }
+
+        if (DEVICES_WITH_RGB.includes(accessory.context.deviceType)) {
+            bulb.getCharacteristic(Characteristic.Hue).onSet((value) => this.setHue(value));
+            bulb.getCharacteristic(Characteristic.Saturation).onSet((value) => this.setSaturation(value));
+        }
+
+    }
+
+    getHSV() {
+        return [this.hue, this.saturation, this.brightness];
     }
 
     updateStatus(isOn, brightness, colorTemp, rgb) {
@@ -467,8 +467,13 @@ class LightBulb {
 
         this.on = isOn;
         this.brightness = brightness;
-        this.colorTemp = colorTemp;
-        this.rgb = rgb;
+        this.cyncColorTemp = colorTemp;
+        this.colorTemp = Math.round(((100 - this.cyncColorTemp) * 360) / 100) + 140;
+        this.rgb = [rgb.r, rgb.g, rgb.b];
+
+        const hsv = convert.rgb.hsv(this.rgb);
+        this.hue = hsv[0];
+        this.saturation = hsv[1];
 
         this.accessory.getService(Service.Lightbulb)
             .getCharacteristic(Characteristic.On)
@@ -481,59 +486,91 @@ class LightBulb {
         }
 
         if (DEVICES_WITH_COLOR_TEMP.includes(this.accessory.context.deviceType)) {
+            this.log.info(`Updating color temp to ${colorTemp}`);
             this.accessory.getService(Service.Lightbulb)
                 .getCharacteristic(Characteristic.ColorTemperature)
-                .updateValue(Math.round(((100 - this.colorTemp) * 360) / 100) + 140);
+                .updateValue(this.colorTemp);
+        }
+
+        if (DEVICES_WITH_RGB.includes(this.accessory.context.deviceType)) {
+            this.accessory.getService(Service.Lightbulb)
+                .getCharacteristic(Characteristic.Hue)
+                .updateValue(this.hue);
+
+            this.accessory.getService(Service.Lightbulb)
+                .getCharacteristic(Characteristic.Saturation)
+                .updateValue(this.saturation);
         }
     }
 
-    setOn(value) {
-        this.on = value;
-
-        const request = Buffer.alloc(13);
-        request.writeUInt16BE(this.meshID, 3);
-        request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
-        request.writeUInt8(this.on, 8);
-        request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
-        request.writeUInt8(0x7e, 12);
-
-        this.log.info(`Sending status update: ${request.toString('hex')}`);
-        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
-    }
-
-    setBrightness(value) {
-        this.brightness = value;
-
+    sendUpdate() {
         const request = Buffer.alloc(16);
         request.writeUInt16BE(this.meshID, 3);
         request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 5);
         request.writeUInt8(this.on, 8);
         request.writeUInt8(this.brightness, 9);
         request.writeUInt8(this.colorTemp, 10);
-        request.writeUInt8(this.rgb.r, 11);
-        request.writeUInt8(this.rgb.g, 12);
-        request.writeUInt8(this.rgb.b, 13);
-        request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 14);
+        request.writeUInt8(this.rgb[0], 11);
+        request.writeUInt8(this.rgb[1], 12);
+        request.writeUInt8(this.rgb[2], 13);
+        request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.cyncColorTemp + this.rgb[0] + this.rgb[1] + this.rgb[2]) % 256, 14);
         request.writeUInt8(0x7e, 15);
-
-        this.log.info(`Sending brightness update: ${request.toString('hex')}`);
+        this.log.info(`Sending full update: ${request.toString('hex')}`);
         this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
+    }
+
+    setOn(value) {
+        this.on = value;
+        this.sendUpdate();
+        // const request = Buffer.alloc(13);
+        // request.writeUInt16BE(this.meshID, 3);
+        // request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
+        // request.writeUInt8(this.on, 8);
+        // request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
+        // request.writeUInt8(0x7e, 12);
+        //
+        // this.log.info(`Sending status update: ${request.toString('hex')}`);
+        // this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
+    }
+
+    setBrightness(value) {
+        this.brightness = value;
+        this.sendUpdate();
     }
 
     setColorTemp(value) {
         this.colorTemp = value;
-
-        const request = Buffer.alloc(12);
-        request.writeUInt16BE(this.meshID, 3);
-        request.writeUInt8(PACKET_SUBTYPE_SET_COLOR_TEMP, 5);
-        request.writeUInt8(0x05, 8);
-        request.writeUInt8(this.colorTemp, 9);
-        request.writeUInt8((469 + this.meshID + this.colorTemp) % 256, 10);
-        request.writeUInt8(0x7e, 11);
-
-        this.log.info(`Sending status update: ${request.toString('hex')}`);
-        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_COLOR_TEMP, request, true);
+        this.cyncColorTemp = 100 - Math.round(((this.colorTemp - 140) * 100) / 360);
+        this.sendUpdate();
+        //
+        // const request = Buffer.alloc(12);
+        // request.writeUInt16BE(this.meshID, 3);
+        // request.writeUInt8(PACKET_SUBTYPE_SET_COLOR_TEMP, 5);
+        // request.writeUInt8(0x05, 8);
+        // request.writeUInt8(this.cyncColorTemp, 9);
+        // request.writeUInt8((469 + this.meshID + this.cyncColorTemp) % 256, 10);
+        // request.writeUInt8(0x7e, 11);
+        //
+        // this.log.info(`Sending status update: ${request.toString('hex')}`);
+        // this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_COLOR_TEMP, request, true);
     }
+
+    setRGB() {
+        this.rgb = convert.hsv.rgb([this.hue, this.saturation, this.brightness]);
+    }
+
+    setHue(value) {
+        this.hue = value;
+        this.setRGB();
+        this.sendUpdate();
+    }
+
+    setSaturation(value) {
+        this.saturation = value;
+        this.setRGB();
+        this.sendUpdate();
+    }
+
 }
 
 const platform = (api) => {
