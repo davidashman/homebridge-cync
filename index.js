@@ -421,8 +421,8 @@ class LightBulb {
             });
         bulb.getCharacteristic(Characteristic.ColorTemperature)
             .onSet((value) => {
-                this.log.info(`HK temp: ${value}, Cync temp: ${((value - 140) * 100) / 360}`);
-                this.setColorTemp(((value - 140) * 100) / 360);
+                this.log.info(`HK temp: ${value}, Cync temp: ${100 - Math.round(((value - 140) * 100) / 360)}`);
+                this.setColorTemp(100 - Math.round(((value - 140) * 100) / 360));
             });
     }
 
@@ -445,7 +445,7 @@ class LightBulb {
 
         this.accessory.getService(Service.Lightbulb)
             .getCharacteristic(Characteristic.ColorTemperature)
-            .updateValue(((this.colorTemp * 360) / 100) + 140);
+            .updateValue(Math.round(((100 - this.colorTemp) * 360) / 100) + 140);
     }
 
     setOn(value) {
