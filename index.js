@@ -388,6 +388,7 @@ class CyncPlatform {
                         accessory.context.deviceID = bulb.deviceID;
                         accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
                         accessory.context.switchID = bulb.switchID;
+                        accessory.context.deviceType = bulb.deviceType;
 
                         let light = this.lightBulbBySwitchID(accessory.context.switchID);
                         if (!light) {
@@ -444,14 +445,20 @@ class LightBulb {
             .onSet((value) => {
                 this.setOn(value);
             });
-        bulb.getCharacteristic(Characteristic.Brightness)
-            .onSet((value) => {
-                this.setBrightness(value);
-            });
-        bulb.getCharacteristic(Characteristic.ColorTemperature)
-            .onSet((value) => {
-                this.setColorTemp(100 - Math.round(((value - 140) * 100) / 360));
-            });
+
+        if (DEVICES_WITH_BRIGHTNESS.includes(accessory.context.deviceType)) {
+            bulb.getCharacteristic(Characteristic.Brightness)
+                .onSet((value) => {
+                    this.setBrightness(value);
+                });
+        }
+
+        if (DEVICES_WITH_COLOR_TEMP.includes(accessory.context.deviceType)) {
+            bulb.getCharacteristic(Characteristic.ColorTemperature)
+                .onSet((value) => {
+                    this.setColorTemp(100 - Math.round(((value - 140) * 100) / 360));
+                });
+        }
     }
 
     updateStatus(isOn, brightness, colorTemp, rgb) {
@@ -467,13 +474,17 @@ class LightBulb {
             .getCharacteristic(Characteristic.On)
             .updateValue(this.on);
 
-        this.accessory.getService(Service.Lightbulb)
-            .getCharacteristic(Characteristic.Brightness)
-            .updateValue(this.brightness);
+        if (DEVICES_WITH_BRIGHTNESS.includes(accessory.context.deviceType)) {
+            this.accessory.getService(Service.Lightbulb)
+                .getCharacteristic(Characteristic.Brightness)
+                .updateValue(this.brightness);
+        }
 
-        this.accessory.getService(Service.Lightbulb)
-            .getCharacteristic(Characteristic.ColorTemperature)
-            .updateValue(Math.round(((100 - this.colorTemp) * 360) / 100) + 140);
+        if (DEVICES_WITH_COLOR_TEMP.includes(accessory.context.deviceType)) {
+            this.accessory.getService(Service.Lightbulb)
+                .getCharacteristic(Characteristic.ColorTemperature)
+                .updateValue(Math.round(((100 - this.colorTemp) * 360) / 100) + 140);
+        }
     }
 
     setOn(value) {
