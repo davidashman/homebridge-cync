@@ -24,6 +24,10 @@ const PACKET_SUBTYPE_GET_STATUS_PAGINATED = 0x52;
 
 const PING_BUFFER = Buffer.alloc(0);
 
+const DEVICES_WITH_BRIGHTNESS = [1,5,6,7,8,9,10,11,13,14,15,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,48,49,55,56,80,81,82,83,85,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,156,158,159,160,161,162,163,164,165];
+const DEVICES_WITH_COLOR_TEMP = [5,6,7,8,10,11,14,15,19,20,21,22,23,25,26,28,29,30,31,32,33,34,35,80,82,83,85,129,130,131,132,133,135,136,137,138,139,140,141,142,143,144,145,146,147,153,154,156,158,159,160,161,162,163,164,165];
+const DEVICES_WITH_RGB = [6,7,8,21,22,23,30,31,32,33,34,35,131,132,133,137,138,139,140,141,142,143,146,147,153,154,156,158,159,160,161,162,163,164,165];
+
 class CyncPlatform {
 
     constructor(log, config, api) {
@@ -200,17 +204,17 @@ class CyncPlatform {
         return null;
     }
 
-    updateConnectedDevices() {
-        for (const bulb of this.lights) {
-            // Ask the server if each device is connected
-            const data = Buffer.alloc(7);
-            data.writeUInt32BE(bulb.switchID);
-            data.writeUInt16BE(this.seq++, 4);
-            this.writePacket(PACKET_TYPE_CONNECTED, data, true);
-        }
+    updateConnectedDevice(bulb) {
+        bulb.connected = false;
+
+        // Ask the server if each device is connected
+        const data = Buffer.alloc(7);
+        data.writeUInt32BE(bulb.switchID);
+        data.writeUInt16BE(this.seq++, 4);
+        this.writePacket(PACKET_TYPE_CONNECTED, data, true);
 
         // check again in 5 minutes
-        setTimeout(() => { this.updateConnectedDevices() }, 300000);
+        setTimeout(() => { this.updateConnectedDevice(bulb) }, 300000);
     }
 
     handleConnectedDevices(packet) {
@@ -337,31 +341,42 @@ class CyncPlatform {
             const homeData = await homeR.json();
             this.log.info(`Received device response: ${JSON.stringify(homeData)}`);
             if (homeData.bulbsArray && homeData.bulbsArray.length > 0) {
+                const discovered = [];
+
                 for (const bulb of homeData.bulbsArray) {
                     const uuid = this.api.hap.uuid.generate(`${bulb.deviceID}`);
                     let accessory = this.accessories.find(accessory => accessory.UUID === uuid);
-                    if (accessory) {
-                        this.checkServices(accessory, bulb, home);
-                        this.log.info(`Skipping bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
-                    }
-                    else {
+
+                    if (!accessory) {
                         // create a new accessory
                         accessory = new this.api.platformAccessory(bulb.displayName, uuid);
-                        this.checkServices(accessory, bulb, home);
+                        accessory.addService(new Service.Lightbulb(accessory.context.displayName));
 
-                        this.log.info(`Creating bulb for ${accessory.context.displayName} with ID ${accessory.context.deviceID} (switch ${accessory.context.switchID}, meshID ${accessory.context.meshID}) and UUID ${accessory.UUID}.`);
-                        this.lights.push(new LightBulb(this.log, accessory, this));
-
-                        this.log.info(`Registering bulb ${accessory.context.displayName} with ID ${accessory.context.deviceID}`);
+                        this.log.info(`Registering bulb ${bulb.displayName}`);
                         this.api.registerPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
                     }
+
+                    accessory.context.displayName = bulb.displayName;
+                    accessory.context.deviceID = bulb.deviceID;
+                    accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
+                    accessory.context.switchID = bulb.switchID;
+
+                    let light = this.lightBulbBySwitchID(accessory.context.switchID);
+                    if (!light) {
+                        light = new LightBulb(this.log, accessory, this);
+                        this.lights.push(light);
+                    }
+
+                    this.updateConnectedDevice(light);
+                    discovered.push(uuid);
+                }
+
+                const remove = this.accessories.filter((accessory) => !discovered.includes(accessory.UUID));
+                for (const accessory of remove) {
+                    this.api.unregisterPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
                 }
             }
         }
-
-        // Reset all bulbs to disconnected on registration
-        this.lights.forEach((bulb) => { bulb.connected = false });
-        setTimeout(() => { this.updateConnectedDevices(); });
     }
 
     /**
@@ -369,30 +384,7 @@ class CyncPlatform {
      * accessory restored
      */
     configureAccessory(accessory) {
-        if (accessory.context.meshID) {
-            this.checkServices(accessory);
-            this.accessories.push(accessory);
-            if (!this.lights.find(bulb => bulb.deviceID === accessory.context.deviceID)) {
-                this.log.info(`Creating bulb for existing accessory ${accessory.context.displayName} with ID ${accessory.context.deviceID} and UUID ${accessory.UUID}.`);
-                this.lights.push(new LightBulb(this.log, accessory, this));
-            }
-        }
-        else {
-            this.api.unregisterPlatformAccessories('homebridge-cync', 'Cync', [accessory]);
-        }
-    }
-
-    checkServices(accessory, bulb = null, home = null) {
-        if (bulb) {
-            accessory.context.displayName = bulb.displayName;
-            accessory.context.deviceID = bulb.deviceID;
-            accessory.context.meshID = ((bulb.deviceID % home.id) % 1000) + (Math.round((bulb.deviceID % home.id) / 1000) * 256 );
-            accessory.context.switchID = bulb.switchID || 0;
-        }
-
-        if (!accessory.getService(Service.Lightbulb)) {
-            accessory.addService(new Service.Lightbulb(accessory.context.displayName));
-        }
+        this.accessories.push(accessory);
     }
 
 }
@@ -427,6 +419,10 @@ class LightBulb {
             .onSet((value) => {
                 this.setBrightness(value);
             });
+        bulb.getCharacteristic(Characteristic.ColorTemperature)
+            .onSet((value) => {
+                this.setColorTemp(((value - 140) * 100) / 360);
+            });
     }
 
     updateStatus(isOn, brightness, colorTemp, rgb) {
@@ -445,54 +441,11 @@ class LightBulb {
         this.accessory.getService(Service.Lightbulb)
             .getCharacteristic(Characteristic.Brightness)
             .updateValue(this.brightness);
-    }
 
-    // sendCommand(command, value) {
-    //     this.log.info(`Setting ${command} on fireplace ${this.name} status to ${value}`);
-    //     if (this.localIP) {
-    //         fetch(this.cookieJar, `http://${this.localIP}/get_challenge`)
-    //             .then((response) => {
-    //                 if (response.ok) {
-    //                     response.text().then(challenge => {
-    //                         const challengeBuffer = Buffer.from(challenge, 'hex');
-    //                         const payloadBuffer = Buffer.from(`${command}=${value})`);
-    //                         const sig = createHash('sha256').update(Buffer.concat([this.apiKeyBuffer, challengeBuffer, payloadBuffer])).digest();
-    //                         const resp = createHash('sha256').update(Buffer.concat([this.apiKeyBuffer, sig])).digest('hex');
-    //
-    //                         const params = new URLSearchParams();
-    //                         params.append("command", command);
-    //                         params.append("value", value);
-    //                         params.append("user", this.userId);
-    //                         params.append("response", resp);
-    //
-    //                         fetch(this.cookieJar, 'http://${this.localIP}/post', {
-    //                             method: 'POST',
-    //                             body: params
-    //                         }).then(response => {
-    //                             this.power = on;
-    //                             this.log.info(`Fireplace update response: ${response.status}`);
-    //                         })
-    //                     });
-    //                 } else {
-    //                     this.log.info(`Fireplace ${this.name} power failed to update: ${response.statusText}`);
-    //                 }
-    //             });
-    //     } else {
-    //         const params = new URLSearchParams();
-    //         params.append(command, value);
-    //
-    //         fetch(this.cookieJar, `https://iftapi.net/a/${this.serialNumber}//apppost`, {
-    //             method: "POST",
-    //             body: params
-    //         }).then((response) => {
-    //             if (response.ok) {
-    //                 this.log.info(`Fireplace update response: ${response.status}`);
-    //             } else {
-    //                 this.log.info(`Fireplace ${this.name} power failed to update: ${response.statusText}`);
-    //             }
-    //         });
-    //     }
-    // }
+        this.accessory.getService(Service.Lightbulb)
+            .getCharacteristic(Characteristic.ColorTemperature)
+            .updateValue(((this.colorTemp * 360) / 100) + 140);
+    }
 
     setOn(value) {
         this.on = value;
@@ -525,6 +478,21 @@ class LightBulb {
 
         this.log.info(`Sending brightness update: ${request.toString('hex')}`);
         this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
+    }
+
+    setColorTemp(value) {
+        this.colorTemp = value;
+
+        const request = Buffer.alloc(12);
+        request.writeUInt16BE(this.meshID, 3);
+        request.writeUInt8(PACKET_SUBTYPE_SET_COLOR_TEMP, 5);
+        request.writeUInt8(0x05, 8);
+        request.writeUInt8(this.colorTemp, 9);
+        request.writeUInt8((469 + this.meshID + this.colorTemp) % 256, 10);
+        request.writeUInt8(0x7e, 11);
+
+        this.log.info(`Sending status update: ${request.toString('hex')}`);
+        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_COLOR_TEMP, request, true);
     }
 }
 
