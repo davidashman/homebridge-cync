@@ -12,7 +12,7 @@ const PACKET_TYPE_AUTH = 1;
 const PACKET_TYPE_SYNC = 4;
 const PACKET_TYPE_STATUS = 7;
 const PACKET_TYPE_STATUS_SYNC = 8;
-const PACKET_TYPE_UPDATE = 10;
+const PACKET_TYPE_CONNECTED = 10;
 const PACKET_TYPE_PING = 13;
 
 const PACKET_SUBTYPE_SET_STATUS = 0xd0;
@@ -36,18 +36,12 @@ class CyncPlatform {
         this.seq = 1;
 
         this.api.on('didFinishLaunching', () => {
+            this.connect();
+            setInterval(() => { this.ping(); }, 180000);
+
             this.authenticate().then(() => {
-                this.connect();
                 this.registerLights();
-
-                setInterval(() => {
-                    this.ping();
-                }, 5000);
-
-                setInterval(() => {
-                    this.queryStatus();
-                }, 2000);
-            })
+            });
         })
     }
 
@@ -91,6 +85,17 @@ class CyncPlatform {
         }
     }
 
+    handleConnect(packet) {
+        if (packet.data.readUInt16BE() == 0) {
+            this.connected = true;
+            this.log.info("Cync server connected.");
+        }
+        else {
+            this.connected = false;
+            this.log.info("Server authentication failed.");
+        }
+    }
+
     ping() {
         this.writePacket(PACKET_TYPE_PING, PING_BUFFER);
     }
@@ -105,7 +110,7 @@ class CyncPlatform {
         packet.writeUInt8((type << 4) | 3);
 
         if (data.length > 0) {
-            packet.writeUInt8(data.length, 4);
+            packet.writeUInt32BE(data.length, 1);
             data.copy(packet, 5);
         }
 
@@ -131,9 +136,14 @@ class CyncPlatform {
         this.writePacket(type, data, log);
     }
 
+    printPacket(packet) {
+        this.log.info(`Got packet: ${packet.type} (${packet.length}) - ${packet.data.toString('hex')}`);
+    }
+
     readPackets() {
         let packet = this.readPacket();
         while (packet) {
+            // this.printPacket(packet);
             switch (packet.type) {
                 case PACKET_TYPE_AUTH:
                     this.handleConnect(packet);
@@ -147,6 +157,9 @@ class CyncPlatform {
                 case PACKET_TYPE_STATUS_SYNC:
                     this.handleStatusSync(packet);
                     break;
+                case PACKET_TYPE_CONNECTED:
+                    this.handleConnectedDevices(packet);
+                    break;
             }
 
             packet = this.readPacket();
@@ -157,15 +170,17 @@ class CyncPlatform {
         // First read the header
         const header = this.socket.read(5);
         if (header) {
+            // this.log.info(`Header: ${header.toString('hex')}`);
             const type = (header.readUInt8() >>> 4);
             const isResponse = (header.readUInt8() & 8) != 0;
-            const length = header.readUInt8(4);
+            const length = header.readUInt32BE(1);
+            // this.log.info(`Got packet header with type ${type}, header ${header.toString('hex')}, length ${length}, isResponse ${isResponse}`);
 
             if (length > 0) {
                 const data = this.socket.read(length);
 
-                if (!isResponse)
-                    this.log.info(`Got packet with type ${type}, header ${header.toString('hex')} and body ${data.toString('hex')}`);
+                // if (!isResponse)
+                //     this.log.info(`Got packet with type ${type}, header ${header.toString('hex')} and body ${data.toString('hex')}`);
 
                 if (data.length == length)
                 {
@@ -180,33 +195,40 @@ class CyncPlatform {
                     this.log.info("Packet length doesn't match.");
                 }
             }
-            // else {
-            //     this.log.info(`Got empty packet with type ${type}, header ${header.toString('hex')}`);
-            // }
         }
 
         return null;
     }
 
-    queryStatus() {
+    updateConnectedDevices() {
         for (const bulb of this.lights) {
+            // Ask the server if each device is connected
+            const data = Buffer.alloc(7);
+            data.writeUInt32BE(bulb.switchID);
+            data.writeUInt16BE(this.seq++, 4);
+            this.writePacket(PACKET_TYPE_CONNECTED, data, true);
+        }
+
+        // check again in 5 minutes
+        setTimeout(() => { this.updateConnectedDevices() }, 300000);
+    }
+
+    handleConnectedDevices(packet) {
+        const switchID = packet.data.readUInt32BE();
+        const bulb = this.lightBulbBySwitchID(switchID);
+        if (bulb && !bulb.connected) {
+            bulb.connected = true;
+            setTimeout(() => { this.updateStatus(bulb); });
+        }
+    }
+
+    updateStatus(bulb) {
+        if (bulb.connected) {
             const data = Buffer.alloc(6);
             data.writeUInt16BE(0xffff);
             data.writeUInt8(0x56, 4);
             data.writeUInt8(0x7e, 5);
-
             this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, true);
-        }
-    }
-
-    handleConnect(packet) {
-        if (packet.data.readUInt16BE() == 0) {
-            this.connected = true;
-            this.log.info("Cync server connected.");
-        }
-        else {
-            this.connected = false;
-            this.log.info("Server authentication failed.");
         }
     }
 
@@ -231,7 +253,7 @@ class CyncPlatform {
                     const state = status.readUInt8(27) > 0;
                     const brightness = state ? status.readUInt8(28) : 0;
 
-                    const bulb = this.lightBulb(meshID);
+                    const bulb = this.lightBulbByMeshID(meshID);
                     if (bulb) {
                         bulb.updateStatus(state, brightness, bulb.colorTemp, bulb.rgb);
                     }
@@ -249,11 +271,7 @@ class CyncPlatform {
                             active: status.readUInt8(16) == 254
                         };
 
-                        const bulb = this.lightBulb(meshID);
-                        if (bulb) {
-                            bulb.updateStatus(state, brightness, colorTemp, rgb);
-                        }
-
+                        this.lightBulbByMeshID(meshID)?.updateStatus(state, brightness, colorTemp, rgb);
                         status = status.subarray(24);
                     }
             }
@@ -273,7 +291,7 @@ class CyncPlatform {
             const brightness = isOn ? status.readUInt8(5) : 0;
             const colorTemp = status.readUInt8(6);
 
-            const bulb = this.lightBulb(meshID);
+            const bulb = this.lightBulbByMeshID(meshID);
             if (bulb) {
                 bulb.updateStatus(isOn, brightness, colorTemp, bulb.rgb);
             }
@@ -288,14 +306,19 @@ class CyncPlatform {
             const isOn = packet.data.readUInt8(27) > 0;
             const brightness = isOn ? packet.data.readUInt8(28) : 0;
 
-            const bulb = this.lightBulb(meshID);
+            const bulb = this.lightBulbByMeshID(meshID);
             if (bulb) {
-                this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
+                // this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
                 bulb.updateStatus(isOn, brightness, bulb.colorTemp, bulb.rgb);
             }
         }
     }
-    lightBulb(meshID) {
+
+    lightBulbBySwitchID(switchID) {
+        return this.lights.find((bulb) => bulb.switchID == switchID);
+    }
+
+    lightBulbByMeshID(meshID) {
         return this.lights.find((bulb) => bulb.meshID == meshID);
     }
 
@@ -335,6 +358,10 @@ class CyncPlatform {
                 }
             }
         }
+
+        // Reset all bulbs to disconnected on registration
+        this.lights.forEach((bulb) => { bulb.connected = false });
+        setTimeout(() => { this.updateConnectedDevices(); });
     }
 
     /**
@@ -373,6 +400,7 @@ class CyncPlatform {
 class LightBulb {
 
     constructor(log, accessory, hub) {
+        this.connected = false;
         this.log = log;
         this.accessory = accessory;
         this.name = accessory.context.displayName;
@@ -467,40 +495,36 @@ class LightBulb {
     // }
 
     setOn(value) {
-        if (value != this.on) {
-            this.on = value;
+        this.on = value;
 
-            const request = Buffer.alloc(13);
-            request.writeUInt16BE(this.meshID, 3);
-            request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
-            request.writeUInt8(this.on, 8);
-            request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
-            request.writeUInt8(0x7e, 12);
+        const request = Buffer.alloc(13);
+        request.writeUInt16BE(this.meshID, 3);
+        request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
+        request.writeUInt8(this.on, 8);
+        request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
+        request.writeUInt8(0x7e, 12);
 
-            this.log.info(`Sending status update: ${request.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
-        }
+        this.log.info(`Sending status update: ${request.toString('hex')}`);
+        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
     }
 
     setBrightness(value) {
-        if (value != this.brightness) {
-            this.brightness = value;
+        this.brightness = value;
 
-            const request = Buffer.alloc(16);
-            request.writeUInt16BE(this.meshID, 3);
-            request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 5);
-            request.writeUInt8(this.on, 8);
-            request.writeUInt8(this.brightness, 9);
-            request.writeUInt8(this.colorTemp, 10);
-            request.writeUInt8(this.rgb.r, 11);
-            request.writeUInt8(this.rgb.g, 12);
-            request.writeUInt8(this.rgb.b, 13);
-            request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 14);
-            request.writeUInt8(0x7e, 15);
+        const request = Buffer.alloc(16);
+        request.writeUInt16BE(this.meshID, 3);
+        request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 5);
+        request.writeUInt8(this.on, 8);
+        request.writeUInt8(this.brightness, 9);
+        request.writeUInt8(this.colorTemp, 10);
+        request.writeUInt8(this.rgb.r, 11);
+        request.writeUInt8(this.rgb.g, 12);
+        request.writeUInt8(this.rgb.b, 13);
+        request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.colorTemp + this.rgb.r + this.rgb.g + this.rgb.b) % 256, 14);
+        request.writeUInt8(0x7e, 15);
 
-            this.log.info(`Sending brightness update: ${request.toString('hex')}`);
-            this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
-        }
+        this.log.info(`Sending brightness update: ${request.toString('hex')}`);
+        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
     }
 }
 
