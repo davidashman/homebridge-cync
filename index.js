@@ -421,6 +421,7 @@ class LightBulb {
             });
         bulb.getCharacteristic(Characteristic.ColorTemperature)
             .onSet((value) => {
+                this.log.info(`HK temp: ${value}, Cync temp: ${((value - 140) * 100) / 360}`);
                 this.setColorTemp(((value - 140) * 100) / 360);
             });
     }
