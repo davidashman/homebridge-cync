@@ -474,13 +474,13 @@ class LightBulb {
             .getCharacteristic(Characteristic.On)
             .updateValue(this.on);
 
-        if (DEVICES_WITH_BRIGHTNESS.includes(accessory.context.deviceType)) {
+        if (DEVICES_WITH_BRIGHTNESS.includes(this.accessory.context.deviceType)) {
             this.accessory.getService(Service.Lightbulb)
                 .getCharacteristic(Characteristic.Brightness)
                 .updateValue(this.brightness);
         }
 
-        if (DEVICES_WITH_COLOR_TEMP.includes(accessory.context.deviceType)) {
+        if (DEVICES_WITH_COLOR_TEMP.includes(this.accessory.context.deviceType)) {
             this.accessory.getService(Service.Lightbulb)
                 .getCharacteristic(Characteristic.ColorTemperature)
                 .updateValue(Math.round(((100 - this.colorTemp) * 360) / 100) + 140);
