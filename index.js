@@ -551,10 +551,8 @@ class LightBulb {
 
 }
 
-const platform = (api) => {
+export default (api) => {
     Service = api.hap.Service;
     Characteristic = api.hap.Characteristic;
     api.registerPlatform("Cync", CyncPlatform);
 }
-
-export default platform;
