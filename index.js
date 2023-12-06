@@ -287,7 +287,7 @@ class CyncPlatform {
 
                     const bulb = this.lightBulbByMeshID(meshID);
                     if (bulb) {
-                        bulb.updateStatus(state, brightness, bulb.colorTemp, bulb.rgb);
+                        bulb.updateStatus(state, brightness, bulb.cyncColorTemp, bulb.rgb);
                     }
                 case PACKET_SUBTYPE_GET_STATUS_PAGINATED:
                     status = status.subarray(22);
@@ -296,12 +296,7 @@ class CyncPlatform {
                         const state = status.readUInt8(8) > 0;
                         const brightness = state ? status.readUInt8(12) : 0;
                         const colorTemp = status.readUInt8(16);
-                        const rgb = {
-                            r: status.readUInt8(20),
-                            g: status.readUInt8(21),
-                            b: status.readUInt8(22),
-                            active: status.readUInt8(16) == 254
-                        };
+                        const rgb = [status.readUInt8(20), status.readUInt8(21), status.readUInt8(22)]
 
                         this.lightBulbByMeshID(meshID)?.updateStatus(state, brightness, colorTemp, rgb);
                         status = status.subarray(24);
@@ -341,7 +336,7 @@ class CyncPlatform {
             const bulb = this.lightBulbByMeshID(meshID);
             if (bulb) {
                 // this.log.info(`Updating switch ID ${switchID}, meshID ${meshID} - on? ${isOn}, brightness ${brightness}`);
-                bulb.updateStatus(isOn, brightness, bulb.colorTemp, bulb.rgb);
+                bulb.updateStatus(isOn, brightness, bulb.cyncColorTemp, bulb.rgb);
             }
         }
     }
@@ -463,7 +458,7 @@ class LightBulb {
 
     updateStatus(isOn, brightness, colorTemp, rgb) {
         // if (isOn != this.on || brightness != this.brightness || colorTemp != this.colorTemp)
-            this.log.info(`Updating switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}, rgb ${JSON.stringify(rgb)}`);
+            this.log.info(`Updating ${this.deviceName} with switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}, rgb ${JSON.stringify(rgb)}`);
 
         this.on = isOn;
         this.brightness = brightness;
@@ -515,22 +510,22 @@ class LightBulb {
         request.writeUInt8(this.rgb[2], 13);
         request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.cyncColorTemp + this.rgb[0] + this.rgb[1] + this.rgb[2]) % 256, 14);
         request.writeUInt8(0x7e, 15);
-        this.log.info(`Sending full update: ${request.toString('hex')}`);
+        this.log.info(`Sending full update for ${this.deviceName}: ${request.toString('hex')}`);
         this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
     }
 
     setOn(value) {
         this.on = value;
-        // this.sendUpdate();
-        const request = Buffer.alloc(13);
-        request.writeUInt16BE(this.meshID, 3);
-        request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
-        request.writeUInt8(this.on, 8);
-        request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
-        request.writeUInt8(0x7e, 12);
-
-        this.log.info(`Sending status update: ${request.toString('hex')}`);
-        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
+        this.sendUpdate();
+        // const request = Buffer.alloc(13);
+        // request.writeUInt16BE(this.meshID, 3);
+        // request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
+        // request.writeUInt8(this.on, 8);
+        // request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
+        // request.writeUInt8(0x7e, 12);
+        //
+        // this.log.info(`Sending status update for ${this.deviceName}: ${request.toString('hex')}`);
+        // this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
     }
 
     setBrightness(value) {
@@ -550,7 +545,7 @@ class LightBulb {
         request.writeUInt8((469 + this.meshID + this.cyncColorTemp) % 256, 10);
         request.writeUInt8(0x7e, 11);
 
-        this.log.info(`Sending status update: ${request.toString('hex')}`);
+        this.log.info(`Sending color temp update for ${this.deviceName}: ${request.toString('hex')}`);
         this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_COLOR_TEMP, request, true);
     }
 
