@@ -458,7 +458,7 @@ class LightBulb {
 
     updateStatus(isOn, brightness, colorTemp, rgb) {
         // if (isOn != this.on || brightness != this.brightness || colorTemp != this.colorTemp)
-            this.log.info(`Updating ${this.deviceName} with switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}, rgb ${JSON.stringify(rgb)}`);
+            this.log.info(`Updating ${this.displayName} with switch ID ${this.switchID}, meshID ${this.meshID} - on? ${isOn}, brightness ${brightness}, temp ${colorTemp}, rgb ${JSON.stringify(rgb)}`);
 
         this.on = isOn;
         this.brightness = brightness;
@@ -510,7 +510,7 @@ class LightBulb {
         request.writeUInt8(this.rgb[2], 13);
         request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.cyncColorTemp + this.rgb[0] + this.rgb[1] + this.rgb[2]) % 256, 14);
         request.writeUInt8(0x7e, 15);
-        this.log.info(`Sending full update for ${this.deviceName}: ${request.toString('hex')}`);
+        this.log.info(`Sending full update for ${this.displayName}: ${request.toString('hex')}`);
         this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
     }
 
@@ -524,7 +524,7 @@ class LightBulb {
         // request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
         // request.writeUInt8(0x7e, 12);
         //
-        // this.log.info(`Sending status update for ${this.deviceName}: ${request.toString('hex')}`);
+        // this.log.info(`Sending status update for ${this.displayName}: ${request.toString('hex')}`);
         // this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
     }
 
@@ -536,17 +536,17 @@ class LightBulb {
     setColorTemp(value) {
         this.colorTemp = value;
         this.cyncColorTemp = 100 - Math.round(((this.colorTemp - 140) * 100) / 360);
-        // this.sendUpdate();
-        const request = Buffer.alloc(12);
-        request.writeUInt16BE(this.meshID, 3);
-        request.writeUInt8(PACKET_SUBTYPE_SET_COLOR_TEMP, 5);
-        request.writeUInt8(0x05, 8);
-        request.writeUInt8(this.cyncColorTemp, 9);
-        request.writeUInt8((469 + this.meshID + this.cyncColorTemp) % 256, 10);
-        request.writeUInt8(0x7e, 11);
-
-        this.log.info(`Sending color temp update for ${this.deviceName}: ${request.toString('hex')}`);
-        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_COLOR_TEMP, request, true);
+        this.sendUpdate();
+        // const request = Buffer.alloc(12);
+        // request.writeUInt16BE(this.meshID, 3);
+        // request.writeUInt8(PACKET_SUBTYPE_SET_COLOR_TEMP, 5);
+        // request.writeUInt8(0x05, 8);
+        // request.writeUInt8(this.cyncColorTemp, 9);
+        // request.writeUInt8((469 + this.meshID + this.cyncColorTemp) % 256, 10);
+        // request.writeUInt8(0x7e, 11);
+        //
+        // this.log.info(`Sending color temp update for ${this.displayName}: ${request.toString('hex')}`);
+        // this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_COLOR_TEMP, request, true);
     }
 
     setRGB() {
