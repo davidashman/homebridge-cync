@@ -554,7 +554,7 @@ class LightBulb {
 const platform = (api) => {
     Service = api.hap.Service;
     Characteristic = api.hap.Characteristic;
-    api.registerPlatform("homebridge-cync", "Cync", CyncPlatform);
+    api.registerPlatform("Cync", CyncPlatform);
 }
 
 export default platform;

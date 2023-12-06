@@ -2,7 +2,7 @@
   "pluginAlias": "Cync",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "To use this plugin, you need to first authenticate using the included script.  Open a terminal and navigate to node_modules/homebridge-cync.  Run 'npm run cync-auth &lt;Cync email address&gt;'.  This will send you a two-factor code.  Once you receive that, run 'npm run cync-auth &lt;Cync email address&gt; &lt;Cync password&gt; &lt;two-factor code&gt;.  Save the refresh toke, user ID and authorize token to the settings.",
+  "headerDisplay": "To use this plugin, you need to first authenticate using the included script.  Open a terminal and navigate to node_modules/homebridge-cync.  Run 'npm run cync-auth &lt;Cync email address&gt;'.  This will send you a two-factor code.  Once you receive that, run 'npm run cync-auth &lt;Cync email address&gt; &lt;Cync password&gt; &lt;two-factor code&gt;.  Save the refresh token, user ID and authorize token to the settings.",
   "footerDisplay": "",
   "customUi": false,
   "schema": {
