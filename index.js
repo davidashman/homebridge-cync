@@ -478,7 +478,6 @@ class LightBulb {
         }
 
         if (DEVICES_WITH_COLOR_TEMP.includes(this.accessory.context.deviceType)) {
-            this.log.info(`Updating color temp to ${colorTemp}`);
             this.accessory.getService(Service.Lightbulb)
                 .getCharacteristic(Characteristic.ColorTemperature)
                 .updateValue(this.colorTemp);

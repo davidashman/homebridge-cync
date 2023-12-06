@@ -1,6 +1,6 @@
 {
   "name": "homebridge-cync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Connects Homebridge/HomeKit to Cync Direct Connect lightbulbs from GE.",
   "type": "module",
   "scripts": {
