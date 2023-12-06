@@ -239,7 +239,7 @@ class CyncPlatform {
         const data = Buffer.alloc(7);
         data.writeUInt32BE(bulb.switchID);
         data.writeUInt16BE(this.seq++, 4);
-        this.sendPacket(PACKET_TYPE_CONNECTED, data, true);
+        this.sendPacket(PACKET_TYPE_CONNECTED, data, false);
 
         // check again in 5 minutes
         setTimeout(() => { this.updateConnectedDevice(bulb) }, 300000);
@@ -260,7 +260,7 @@ class CyncPlatform {
             data.writeUInt16BE(0xffff);
             data.writeUInt8(0x56, 4);
             data.writeUInt8(0x7e, 5);
-            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, true);
+            this.sendRequest(PACKET_TYPE_STATUS, bulb.switchID, PACKET_SUBTYPE_GET_STATUS_PAGINATED, data, false);
         }
     }
 
@@ -273,7 +273,7 @@ class CyncPlatform {
             const data = Buffer.alloc(7);
             data.writeUInt32BE(switchID);
             data.writeUInt16BE(responseID, 4);
-            this.sendPacket(PACKET_TYPE_STATUS, data, true);
+            this.sendPacket(PACKET_TYPE_STATUS, data, false);
         }
 
         if (packet.length >= 25) {
@@ -507,7 +507,7 @@ class LightBulb {
         request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.cyncColorTemp + this.rgb[0] + this.rgb[1] + this.rgb[2]) % 256, 14);
         request.writeUInt8(0x7e, 15);
         this.log.info(`Sending update for ${this.name}: ${request.toString('hex')}`);
-        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
+        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, false);
     }
 
     setOn(value) {
