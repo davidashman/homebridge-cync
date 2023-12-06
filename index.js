@@ -464,7 +464,7 @@ class LightBulb {
         this.brightness = brightness;
         this.cyncColorTemp = colorTemp;
         this.colorTemp = Math.round(((100 - this.cyncColorTemp) * 360) / 100) + 140;
-        this.rgb = [rgb.r, rgb.g, rgb.b];
+        this.rgb = rgb;
 
         const hsv = convert.rgb.hsv(this.rgb);
         this.hue = hsv[0];
@@ -530,6 +530,21 @@ class LightBulb {
     setBrightness(value) {
         this.brightness = value;
         this.sendUpdate();
+
+        const request = Buffer.alloc(16);
+        request.writeUInt16BE(this.meshID, 3);
+        request.writeUInt8(PACKET_SUBTYPE_SET_STATE, 5);
+        request.writeUInt8(this.on, 8);
+        request.writeUInt8(this.brightness, 9);
+        request.writeUInt8(this.cyncColorTemp, 10);
+        request.writeUInt8(this.rgb[0], 11);
+        request.writeUInt8(this.rgb[1], 12);
+        request.writeUInt8(this.rgb[2], 13);
+        request.writeUInt8((496 + this.meshID + (this.on ? 1 : 0) + this.brightness + this.cyncColorTemp + this.rgb[0] + this.rgb[1] + this.rgb[2]) % 256, 14);
+        request.writeUInt8(0x7e, 15);
+
+        this.log.info(`Sending brightness update: ${request.toString('hex')}`);
+        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATE, request, true);
     }
 
     setColorTemp(value) {
