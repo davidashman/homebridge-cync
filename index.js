@@ -516,7 +516,15 @@ class LightBulb {
 
     setOn(value) {
         this.on = value;
-        this.sendUpdate();
+        const request = Buffer.alloc(13);
+        request.writeUInt16BE(this.meshID, 3);
+        request.writeUInt8(PACKET_SUBTYPE_SET_STATUS, 5);
+        request.writeUInt8(this.on, 8);
+        request.writeUInt8((429 + this.meshID + (this.on ? 1 : 0)) % 256, 11);
+        request.writeUInt8(0x7e, 12);
+
+        this.log.info(`Sending status update for ${this.name}: ${request.toString('hex')}`);
+        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_STATUS, request, true);
     }
 
     setBrightness(value) {
@@ -527,7 +535,16 @@ class LightBulb {
     setColorTemp(value) {
         this.colorTemp = value;
         this.cyncColorTemp = 100 - Math.round(((this.colorTemp - 140) * 100) / 360);
-        this.sendUpdate();
+        const request = Buffer.alloc(12);
+        request.writeUInt16BE(this.meshID, 3);
+        request.writeUInt8(PACKET_SUBTYPE_SET_COLOR_TEMP, 5);
+        request.writeUInt8(0x05, 8);
+        request.writeUInt8(this.cyncColorTemp, 9);
+        request.writeUInt8((469 + this.meshID + this.cyncColorTemp) % 256, 10);
+        request.writeUInt8(0x7e, 11);
+
+        this.log.info(`Sending color temp update for ${this.name}: ${request.toString('hex')}`);
+        this.hub.sendRequest(PACKET_TYPE_STATUS, this.switchID, PACKET_SUBTYPE_SET_COLOR_TEMP, request, true);
     }
 
     setRGB() {
